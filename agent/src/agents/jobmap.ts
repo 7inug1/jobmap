@@ -2,9 +2,8 @@
 import { useDataWriter, useInitialData, useModel, useTool } from '@flue/runtime';
 import * as v from 'valibot';
 import { MODEL } from '../model/default-model.ts';
+import { comparisonInput } from './comparison-input.ts';
 import { createSaveComparison } from '../tools/save-comparison.ts';
-
-const comparisonInput = v.object({ posting: v.string(), resume: v.string() });
 
 export function Jobmap() {
 	useModel(MODEL);
