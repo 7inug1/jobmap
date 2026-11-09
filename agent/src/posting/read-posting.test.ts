@@ -1,7 +1,7 @@
 import { describe, expect, it } from 'vitest';
 import { extractText, isAllowedUrl, readPosting } from './read-posting.ts';
 
-const LONG = '프론트엔드 개발자를 찾고 있어요. '.repeat(10);
+const LONG = '프론트엔드 개발자의 자격 요건을 확인해 주세요. '.repeat(30);
 
 function page(body: string, init?: ResponseInit) {
 	return async () => new Response(body, { headers: { 'content-type': 'text/html; charset=utf-8' }, ...init });
@@ -79,6 +79,91 @@ describe('readPosting', () => {
 	it('HTML이 아니면 읽지 않는다', async () => {
 		const pdf = async () => new Response('%PDF', { headers: { 'content-type': 'application/pdf' } });
 		expect(await readPosting('https://example.com/job.pdf', pdf)).toEqual({ ok: false, reason: 'not_html' });
+	});
+
+	it('구조화된 공고 데이터가 있으면 제목과 설명을 먼저 쓴다', async () => {
+		const data = { '@type': 'JobPosting', title: '프론트엔드 개발자', description: `<h3>자격 요건</h3><ul><li>${LONG}</li></ul>` };
+		const html = `<script type="application/ld+json">${JSON.stringify(data)}</script><main><p>${LONG}</p><p>연관 콘텐츠</p></main>`;
+		const result = await readPosting('https://example.com/job', page(html));
+		expect(result).toEqual({ ok: true, text: `프론트엔드 개발자\n자격 요건\n- ${LONG.trim()}` });
+	});
+
+	it('배열과 @graph 안의 공고 데이터도 찾는다', async () => {
+		const posting = { '@type': ['JobPosting'], title: 'A', description: LONG };
+		const graph = { '@graph': [{ '@type': 'Organization' }, posting] };
+		for (const data of [[{ '@type': 'Organization' }, posting], graph]) {
+			const html = `<script type="application/ld+json">${JSON.stringify(data)}</script>`;
+			expect(await readPosting('https://example.com/job', page(html))).toEqual({ ok: true, text: `A\n${LONG.trim()}` });
+		}
+	});
+
+	it('설명이 한 번 더 이스케이프돼 있어도 태그를 지운다', async () => {
+		const data = { '@type': 'JobPosting', title: 'A', description: `&lt;p&gt;${LONG}&lt;/p&gt;` };
+		const html = `<script type="application/ld+json">${JSON.stringify(data)}</script>`;
+		expect(await readPosting('https://example.com/job', page(html))).toEqual({ ok: true, text: `A\n${LONG.trim()}` });
+	});
+
+	it('깨진 구조화 데이터는 무시하고 본문을 읽는다', async () => {
+		const html = `<script type="application/ld+json">{깨짐</script><main><p>${LONG}</p></main>`;
+		expect(await readPosting('https://example.com/job', page(html))).toEqual({ ok: true, text: LONG.trim() });
+	});
+
+	it('article이 있으면 main의 나머지 영역을 빼고 읽는다', async () => {
+		const html = `<main><article><p>${LONG}</p></article><aside>연관 콘텐츠</aside></main>`;
+		expect(await readPosting('https://example.com/job', page(html))).toEqual({ ok: true, text: LONG.trim() });
+	});
+
+	it('공고 영역 없이 메뉴만 있는 페이지는 읽은 것으로 치지 않는다', async () => {
+		const html = `<body><nav>${LONG}</nav></body>`;
+		expect(await readPosting('https://example.com/job', page(html))).toEqual({ ok: false, reason: 'no_text' });
+	});
+
+	it('구조화 데이터에 요건이 없으면 요건이 있는 영역을 쓴다', async () => {
+		const summary = '주요 업무를 소개하는 글입니다. '.repeat(20);
+		const data = { '@type': 'JobPosting', title: 'A', description: summary };
+		const html = `<script type="application/ld+json">${JSON.stringify(data)}</script><main><p>${LONG}</p></main>`;
+		expect(await readPosting('https://example.com/job', page(html))).toEqual({ ok: true, text: LONG.trim() });
+	});
+
+	it('요건을 어디에서도 찾지 못하면 읽은 것으로 치지 않는다', async () => {
+		const summary = '정규직 채용을 진행합니다. 자세한 조건은 공고를 확인해 주세요. '.repeat(10);
+		expect(await readPosting('https://example.com/job', page(`<main><p>${summary}</p></main>`))).toEqual({
+			ok: false,
+			reason: 'no_text',
+		});
+	});
+
+	it('영어 공고의 요건도 알아본다', async () => {
+		const english = 'You have strong experience with React and TypeScript. '.repeat(15);
+		const result = await readPosting('https://example.com/job', page(`<main><p>${english}</p></main>`));
+		expect(result).toEqual({ ok: true, text: english.trim() });
+	});
+
+	it('응답의 문자 인코딩대로 읽는다', async () => {
+		const eucKr = [0xc0, 0xda, 0xb0, 0xdd, 0x20, 0xbf, 0xe4, 0xb0, 0xc7, 0x20];
+		const open = [...new TextEncoder().encode('<main><p>')];
+		const close = [...new TextEncoder().encode('</p></main>')];
+		const bytes = new Uint8Array([...open, ...Array.from({ length: 100 }, () => eucKr).flat(), ...close]);
+		const legacy = async () => new Response(bytes, { headers: { 'content-type': 'text/html; Charset=euc-kr' } });
+		const result = await readPosting('https://example.com/job', legacy);
+		expect(result).toEqual({ ok: true, text: '자격 요건 '.repeat(100).trim() });
+	});
+
+	it('서비스 이름을 밝히고 요청한다', async () => {
+		let agent: string | null = null;
+		await readPosting('https://example.com/job', async (_url, init) => {
+			agent = new Headers(init?.headers).get('user-agent');
+			return new Response('');
+		});
+		expect(agent).toContain('jobmap');
+	});
+
+	it('항목 이름만 있는 짧은 글은 읽은 것으로 치지 않는다', async () => {
+		const labels = '지원자격 경력무관 학력무관 '.repeat(15);
+		expect(await readPosting('https://example.com/job', page(`<main><p>${labels}</p></main>`))).toEqual({
+			ok: false,
+			reason: 'no_text',
+		});
 	});
 
 	it('글이 거의 없는 페이지는 본문을 못 읽은 것으로 본다', async () => {
