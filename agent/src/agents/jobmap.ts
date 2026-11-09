@@ -1,12 +1,13 @@
 'use agent';
 import { useDataWriter, useInitialData, useModel, useTool } from '@flue/runtime';
 import * as v from 'valibot';
+import { MODEL } from '../model/default-model.ts';
 import { createSaveComparison } from '../tools/save-comparison.ts';
 
 const comparisonInput = v.object({ posting: v.string(), resume: v.string() });
 
 export function Jobmap() {
-	useModel('cloudflare/@cf/mistralai/mistral-small-3.1-24b-instruct');
+	useModel(MODEL);
 	const input = useInitialData<v.InferOutput<typeof comparisonInput>>();
 	const writeProgress = useDataWriter('progress', { schema: v.object({ step: v.string() }) });
 
