@@ -49,6 +49,13 @@ input, textarea { width: 100%; padding: 10px 12px; font: inherit; color: inherit
 .url-row input { flex: 1; min-width: 0; }
 .url-row button { flex: none; }
 .btn-line:disabled { color: var(--mfg); cursor: not-allowed; }
+.file-row { display: flex; flex-wrap: wrap; align-items: center; gap: 8px; }
+.file-button { position: relative; width: fit-content; cursor: pointer; font-weight: 500; }
+.file-button input { position: absolute; width: 1px; height: 1px; opacity: 0; }
+.file-button:focus-within { outline: 2px solid var(--fg); outline-offset: 2px; }
+.sources { display: grid; grid-template-columns: auto minmax(0, 1fr); gap: 2px 10px; margin: 0; font-size: 13px; color: var(--mfg); }
+.sources dt { font-weight: 700; }
+.sources dd { margin: 0; }
 .small { font-size: 13px; color: var(--mfg); }
 .error { color: var(--gap); font-weight: 500; }
 

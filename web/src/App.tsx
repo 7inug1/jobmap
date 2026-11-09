@@ -1,6 +1,8 @@
 import { useFlueAgent } from '@flue/react'
 import { createFlueClient } from '@flue/sdk'
-import { useState, type FormEvent, type KeyboardEvent } from 'react'
+import { useState, type ChangeEvent, type FormEvent, type KeyboardEvent } from 'react'
+import { classifyPostingUrl, SUPPORTED, UNSUPPORTED } from './posting-sources.ts'
+import { readResumePdf } from './resume-pdf.ts'
 import { annotatePosting, applyEdits, readComparison, type EditedRow, type Verdict } from './comparison.ts'
 
 const RUN_KEY = 'jobmap-run'
@@ -13,6 +15,8 @@ const VERDICTS: { value: Verdict; label: string; className: string }[] = [
   { value: 'partial', label: '일부 충족', className: 'part' },
   { value: 'unmet', label: '불충족', className: 'lack' },
 ]
+
+const MIN_RESUME_LENGTH = 50
 
 const POSTING_ERRORS: Record<string, string> = {
   invalid_url: 'https로 시작하는 공고 주소를 넣어 주세요.',
@@ -79,10 +83,37 @@ function Start({ initial, onStarted }: { initial: Inputs; onStarted: (run: Run) 
   const [url, setUrl] = useState('')
   const [loadingUrl, setLoadingUrl] = useState(false)
   const [urlError, setUrlError] = useState<string | null>(null)
+  const [readingPdf, setReadingPdf] = useState(false)
+  const [pdfName, setPdfName] = useState<string | null>(null)
+  const [pdfError, setPdfError] = useState<string | null>(null)
+  const source = classifyPostingUrl(url.trim())
+  const canLoadUrl = (source.kind === 'supported' || source.kind === 'unknown') && !loadingUrl
   const ready = posting.trim() !== '' && resume.trim() !== '' && !sending
 
+  async function attachPdf(event: ChangeEvent<HTMLInputElement>) {
+    const file = event.target.files?.[0]
+    event.target.value = ''
+    if (!file) return
+    setReadingPdf(true)
+    setPdfError(null)
+    setPdfName(null)
+    try {
+      const text = await readResumePdf(file)
+      if (text.trim().length < MIN_RESUME_LENGTH) {
+        setPdfError('PDF에서 글자를 찾지 못했어요. 스캔한 파일이면 내용을 붙여 넣어 주세요.')
+        return
+      }
+      setResume(text)
+      setPdfName(file.name)
+    } catch {
+      setPdfError('PDF를 읽지 못했어요. 내용을 붙여 넣어 주세요.')
+    } finally {
+      setReadingPdf(false)
+    }
+  }
+
   async function loadPosting() {
-    if (url.trim() === '' || loadingUrl) return
+    if (!canLoadUrl) return
     setLoadingUrl(true)
     setUrlError(null)
     try {
@@ -125,10 +156,22 @@ function Start({ initial, onStarted }: { initial: Inputs; onStarted: (run: Run) 
       <form className="form" onSubmit={submit}>
         <div className="field">
           <label htmlFor="resume">내 이력서</label>
+          <div className="file-row">
+            <label className="btn-line file-button">
+              <input id="resume-file" type="file" accept="application/pdf,.pdf" disabled={readingPdf} onChange={attachPdf} />
+              {readingPdf ? '읽는 중' : 'PDF 첨부'}
+            </label>
+            {pdfName ? <span className="small">{pdfName}에서 글자를 가져왔어요. 틀린 곳은 고쳐 주세요.</span> : null}
+          </div>
+          {pdfError ? (
+            <p className="error" role="alert">
+              {pdfError}
+            </p>
+          ) : null}
           <textarea
             id="resume"
             rows={8}
-            placeholder="이력서 내용을 붙여 넣어 주세요"
+            placeholder="PDF를 첨부하면 내용이 여기에 들어와요. 직접 붙여 넣어도 돼요."
             value={resume}
             onChange={(event) => setResume(event.target.value)}
           />
@@ -145,10 +188,25 @@ function Start({ initial, onStarted }: { initial: Inputs; onStarted: (run: Run) 
               onChange={(event) => setUrl(event.target.value)}
               onKeyDown={loadOnEnter}
             />
-            <button className="btn-line" type="button" disabled={url.trim() === '' || loadingUrl} onClick={loadPosting}>
+            <button className="btn-line" type="button" disabled={!canLoadUrl} onClick={loadPosting}>
               {loadingUrl ? '불러오는 중' : '불러오기'}
             </button>
           </div>
+          {source.kind === 'supported' ? <span className="small">{source.name} 공고는 링크로 읽을 수 있어요.</span> : null}
+          {source.kind === 'unknown' ? (
+            <span className="small">아직 확인하지 않은 사이트예요. 불러와 보고, 안 되면 본문을 붙여 넣어 주세요.</span>
+          ) : null}
+          {source.kind === 'unsupported' ? (
+            <p className="error" role="status">
+              {source.name} 공고는 링크로 읽지 못해요. 공고 본문을 아래에 붙여 넣어 주세요.
+            </p>
+          ) : null}
+          <dl className="sources">
+            <dt>링크로 읽어요</dt>
+            <dd>{SUPPORTED.map(({ name }) => name).join(', ')}</dd>
+            <dt>붙여 넣어 주세요</dt>
+            <dd>{UNSUPPORTED.map(({ name }) => name).join(', ')}</dd>
+          </dl>
           {urlError ? (
             <p className="error" role="alert">
               {urlError}
