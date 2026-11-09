@@ -1,6 +1,6 @@
 import { useFlueAgent } from '@flue/react'
 import { createFlueClient } from '@flue/sdk'
-import { useState, type ChangeEvent, type FormEvent, type KeyboardEvent } from 'react'
+import { useState, type ChangeEvent, type FormEvent } from 'react'
 import { classifyPostingUrl, SUPPORTED, UNSUPPORTED } from './posting-sources.ts'
 import { readResumePdf } from './resume-pdf.ts'
 import { annotatePosting, applyEdits, readComparison, type EditedRow, type Verdict } from './comparison.ts'
@@ -76,74 +76,87 @@ export default function App() {
 }
 
 function Start({ initial, onStarted }: { initial: Inputs; onStarted: (run: Run) => void }) {
-  const [posting, setPosting] = useState(initial.posting)
   const [resume, setResume] = useState(initial.resume)
-  const [sending, setSending] = useState(false)
-  const [failed, setFailed] = useState(false)
-  const [url, setUrl] = useState('')
-  const [loadingUrl, setLoadingUrl] = useState(false)
-  const [urlError, setUrlError] = useState<string | null>(null)
-  const [readingPdf, setReadingPdf] = useState(false)
   const [pdfName, setPdfName] = useState<string | null>(null)
-  const [pdfError, setPdfError] = useState<string | null>(null)
+  const [readingPdf, setReadingPdf] = useState(false)
+  const [resumeError, setResumeError] = useState<string | null>(null)
+  const [pasteResume, setPasteResume] = useState(false)
+
+  const [url, setUrl] = useState('')
+  const [posting, setPosting] = useState(initial.posting)
+  const [postingError, setPostingError] = useState<string | null>(null)
+  const [pastePosting, setPastePosting] = useState(initial.posting !== '')
+
+  const [status, setStatus] = useState<'idle' | 'reading-posting' | 'starting'>('idle')
+  const [failed, setFailed] = useState(false)
+
   const source = classifyPostingUrl(url.trim())
-  const canLoadUrl = (source.kind === 'supported' || source.kind === 'unknown') && !loadingUrl
-  const ready = posting.trim() !== '' && resume.trim() !== '' && !sending
+  const urlIsReadable = source.kind === 'supported' || source.kind === 'unknown'
+  const showPosting = pastePosting || source.kind === 'unsupported'
+  const hasPosting = showPosting ? posting.trim() !== '' : urlIsReadable
+  const ready = resume.trim() !== '' && hasPosting && !readingPdf && status === 'idle'
 
   async function attachPdf(event: ChangeEvent<HTMLInputElement>) {
     const file = event.target.files?.[0]
     event.target.value = ''
     if (!file) return
     setReadingPdf(true)
-    setPdfError(null)
+    setResumeError(null)
     setPdfName(null)
     try {
       const text = await readResumePdf(file)
       if (text.trim().length < MIN_RESUME_LENGTH) {
-        setPdfError('PDF에서 글자를 찾지 못했어요. 스캔한 파일이면 내용을 붙여 넣어 주세요.')
+        setResumeError('PDF에서 글자를 찾지 못했어요. 스캔한 파일이면 내용을 붙여 넣어 주세요.')
+        setPasteResume(true)
         return
       }
       setResume(text)
       setPdfName(file.name)
+      setPasteResume(false)
     } catch {
-      setPdfError('PDF를 읽지 못했어요. 내용을 붙여 넣어 주세요.')
+      setResumeError('PDF를 읽지 못했어요. 내용을 붙여 넣어 주세요.')
+      setPasteResume(true)
     } finally {
       setReadingPdf(false)
     }
   }
 
-  async function loadPosting() {
-    if (!canLoadUrl) return
-    setLoadingUrl(true)
-    setUrlError(null)
+  async function readPostingLink(): Promise<string | null> {
     try {
       const response = await fetch(`/api/posting?url=${encodeURIComponent(url.trim())}`)
       const result = (await response.json()) as { ok: true; text: string } | { ok: false; reason: string }
-      if (result.ok) setPosting(result.text)
-      else setUrlError(POSTING_ERRORS[result.reason])
+      if (result.ok) return result.text
+      setPostingError(POSTING_ERRORS[result.reason])
     } catch {
-      setUrlError(POSTING_ERRORS.fetch_failed)
-    } finally {
-      setLoadingUrl(false)
+      setPostingError(POSTING_ERRORS.fetch_failed)
     }
-  }
-
-  function loadOnEnter(event: KeyboardEvent) {
-    if (event.key !== 'Enter' || event.nativeEvent.isComposing) return
-    event.preventDefault()
-    void loadPosting()
+    setPastePosting(true)
+    return null
   }
 
   async function submit(event: FormEvent) {
     event.preventDefault()
     if (!ready) return
-    setSending(true)
     setFailed(false)
+    setPostingError(null)
+
+    let postingText = posting
+    if (!showPosting) {
+      setStatus('reading-posting')
+      const text = await readPostingLink()
+      if (text === null) {
+        setStatus('idle')
+        return
+      }
+      postingText = text
+    }
+
+    setStatus('starting')
     try {
-      onStarted(await startRun({ posting, resume }))
+      onStarted(await startRun({ posting: postingText, resume }))
     } catch {
       setFailed(true)
-      setSending(false)
+      setStatus('idle')
     }
   }
 
@@ -155,50 +168,61 @@ function Start({ initial, onStarted }: { initial: Inputs; onStarted: (run: Run) 
       </div>
       <form className="form" onSubmit={submit}>
         <div className="field">
-          <label htmlFor="resume">내 이력서</label>
+          <span className="label">내 이력서</span>
           <div className="file-row">
             <label className="btn-line file-button">
               <input id="resume-file" type="file" accept="application/pdf,.pdf" disabled={readingPdf} onChange={attachPdf} />
-              {readingPdf ? '읽는 중' : 'PDF 첨부'}
+              {readingPdf ? '읽는 중' : resume.trim() !== '' && !pasteResume ? '다른 PDF 첨부' : 'PDF 첨부'}
             </label>
-            {pdfName ? <span className="small">{pdfName}에서 글자를 가져왔어요. 틀린 곳은 고쳐 주세요.</span> : null}
+            {pdfName ? <span className="small">{pdfName}</span> : null}
+            {!pdfName && resume.trim() !== '' && !pasteResume ? <span className="small">이전에 넣은 이력서를 쓸게요.</span> : null}
+            {!pasteResume ? (
+              <button className="link-button" type="button" onClick={() => setPasteResume(true)}>
+                직접 붙여 넣기
+              </button>
+            ) : null}
           </div>
-          {pdfError ? (
+          {resumeError ? (
             <p className="error" role="alert">
-              {pdfError}
+              {resumeError}
             </p>
           ) : null}
-          <textarea
-            id="resume"
-            rows={8}
-            placeholder="PDF를 첨부하면 내용이 여기에 들어와요. 직접 붙여 넣어도 돼요."
-            value={resume}
-            onChange={(event) => setResume(event.target.value)}
-          />
+          {pasteResume ? (
+            <textarea
+              id="resume"
+              aria-label="이력서 내용"
+              rows={8}
+              placeholder="이력서 내용을 붙여 넣어 주세요."
+              value={resume}
+              onChange={(event) => setResume(event.target.value)}
+            />
+          ) : null}
         </div>
         <div className="field">
           <label htmlFor="posting-url">가고 싶은 공고</label>
-          <div className="url-row">
-            <input
-              id="posting-url"
-              type="url"
-              inputMode="url"
-              placeholder="https://careers.daangn.com/jobs/role/..."
-              value={url}
-              onChange={(event) => setUrl(event.target.value)}
-              onKeyDown={loadOnEnter}
-            />
-            <button className="btn-line" type="button" disabled={!canLoadUrl} onClick={loadPosting}>
-              {loadingUrl ? '불러오는 중' : '불러오기'}
-            </button>
-          </div>
+          <input
+            id="posting-url"
+            type="url"
+            inputMode="url"
+            placeholder="https://careers.daangn.com/jobs/role/..."
+            value={url}
+            onChange={(event) => {
+              setUrl(event.target.value)
+              setPostingError(null)
+            }}
+          />
           {source.kind === 'supported' ? <span className="small">{source.name} 공고는 링크로 읽을 수 있어요.</span> : null}
           {source.kind === 'unknown' ? (
-            <span className="small">아직 확인하지 않은 사이트예요. 불러와 보고, 안 되면 본문을 붙여 넣어 주세요.</span>
+            <span className="small">아직 확인하지 않은 사이트예요. 읽지 못하면 본문을 붙여 넣어 달라고 안내할게요.</span>
           ) : null}
           {source.kind === 'unsupported' ? (
             <p className="error" role="status">
               {source.name} 공고는 링크로 읽지 못해요. 공고 본문을 아래에 붙여 넣어 주세요.
+            </p>
+          ) : null}
+          {postingError ? (
+            <p className="error" role="alert">
+              {postingError}
             </p>
           ) : null}
           <dl className="sources">
@@ -207,20 +231,20 @@ function Start({ initial, onStarted }: { initial: Inputs; onStarted: (run: Run) 
             <dt>붙여 넣어 주세요</dt>
             <dd>{UNSUPPORTED.map(({ name }) => name).join(', ')}</dd>
           </dl>
-          {urlError ? (
-            <p className="error" role="alert">
-              {urlError}
-            </p>
-          ) : null}
-          <textarea
-            id="posting"
-            aria-label="공고 본문"
-            rows={8}
-            placeholder="링크를 불러오면 본문이 여기에 들어와요. 직접 붙여 넣어도 돼요."
-            value={posting}
-            onChange={(event) => setPosting(event.target.value)}
-          />
-          <span className="small">불러온 글에서 공고와 상관없는 부분은 지워도 돼요.</span>
+          {showPosting ? (
+            <textarea
+              id="posting"
+              aria-label="공고 본문"
+              rows={8}
+              placeholder="공고 본문을 붙여 넣어 주세요."
+              value={posting}
+              onChange={(event) => setPosting(event.target.value)}
+            />
+          ) : (
+            <button className="link-button start-align" type="button" onClick={() => setPastePosting(true)}>
+              링크 없이 본문 붙여 넣기
+            </button>
+          )}
         </div>
         {failed ? (
           <p className="error" role="alert">
@@ -229,7 +253,7 @@ function Start({ initial, onStarted }: { initial: Inputs; onStarted: (run: Run) 
         ) : null}
         <div>
           <button className="btn" type="submit" disabled={!ready}>
-            {sending ? '시작하는 중' : '내 이력과 비교해 보기'}
+            {status === 'reading-posting' ? '공고 읽는 중' : status === 'starting' ? '시작하는 중' : '내 이력과 비교해 보기'}
           </button>
         </div>
       </form>

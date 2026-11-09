@@ -45,10 +45,10 @@ input, textarea { width: 100%; padding: 10px 12px; font: inherit; color: inherit
 .form { display: grid; gap: 18px; padding: 22px; border: 1px solid var(--line); border-radius: 14px; }
 .field { display: grid; gap: 6px; }
 .field > label { font-weight: 700; }
-.url-row { display: flex; gap: 8px; }
-.url-row input { flex: 1; min-width: 0; }
-.url-row button { flex: none; }
-.btn-line:disabled { color: var(--mfg); cursor: not-allowed; }
+.field > .label { font-weight: 700; }
+.link-button { padding: 0; color: var(--mfg); font-size: 13px; text-decoration: underline; }
+.link-button:hover { color: var(--fg); }
+.start-align { justify-self: start; }
 .file-row { display: flex; flex-wrap: wrap; align-items: center; gap: 8px; }
 .file-button { position: relative; width: fit-content; cursor: pointer; font-weight: 500; }
 .file-button input { position: absolute; width: 1px; height: 1px; opacity: 0; }
