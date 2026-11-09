@@ -161,7 +161,9 @@ http://localhost:5174 를 열면 됩니다. 테스트는 각 폴더에서 `npm t
 | `agent/src/posting/` | 공고 링크 읽기 |
 | `agent/src/directions/` | 부족한 요건을 채울 방법 제안 |
 | `agent/eval/postings/` | 평가용 공고 본문 |
-| `web/src/` | React 화면과 상태 판단 함수 |
+| `web/src/app/` | 화면 전환과 저장 기록 |
+| `web/src/features/` | 단계별 화면과 판단 함수 (입력, 비교, 방향, 이번 주 할 일) |
+| `web/src/shared/` | 여러 단계가 같이 쓰는 타입과 호출 |
 | `docs/` | 판단 기록, 평가 기준, 플랫폼 측정 |
 
 이력서와 정답 데이터는 개인 정보가 들어 있어 저장소에 올리지 않습니다.

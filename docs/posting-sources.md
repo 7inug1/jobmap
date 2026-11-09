@@ -24,7 +24,7 @@
 
 아직 재지 못한 곳: 네이버, 우아한형제들, 프로그래머스, Indeed, SmartRecruiters(측정할 공고 링크를 얻지 못함).
 
-입력 화면의 목록은 `web/src/posting-sources.ts`에 있다. LinkedIn은 약관을 확인하기 전까지 화면에서 붙여넣기로 안내한다.
+입력 화면의 목록은 `web/src/features/start/posting-sources.ts`에 있다. LinkedIn은 약관을 확인하기 전까지 화면에서 붙여넣기로 안내한다.
 
 ## 실제 모델 실행
 
