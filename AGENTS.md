@@ -13,7 +13,7 @@
 
 - Node 24 (`nvm use`)
 - 에이전트: `cd agent && npm run dev` (5173), `npm test`, `npm run check:types`
-- 화면: `cd web && npm run dev` (5174), `npm run lint`, `npm run build`
+- 화면: `cd web && npm run dev` (5174), `npm test`, `npm run lint`, `npm run build`
 - Flue API는 지어내지 말고 `cd agent && npx flue docs search <검색어>`로 확인한다.
 
 ## 역할 나누기
