@@ -2,6 +2,8 @@ export type TextItem = { str: string; width: number; height: number; transform: 
 
 const SAME_LINE_RATIO = 0.5
 const SPACE_GAP_RATIO = 0.15
+// Chrome으로 만든 PDF는 띄어쓰기가 U+0001 같은 제어 문자로 나온다. 줄바꿈은 남긴다.
+const CONTROL_CHARS = /[^\P{Cc}\n]/gu
 
 function joinLine(line: TextItem[]): string {
   return line
@@ -28,5 +30,5 @@ export function itemsToText(items: readonly TextItem[]): string {
     else lines.push([item])
   }
 
-  return lines.map(joinLine).join('\n')
+  return lines.map(joinLine).join('\n').replace(CONTROL_CHARS, ' ')
 }

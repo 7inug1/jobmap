@@ -27,6 +27,10 @@ describe('itemsToText', () => {
     assert.equal(itemsToText([item('프론트', 0, 200, 30), item('엔드', 30, 200, 20)]), '프론트엔드')
   })
 
+  it('띄어쓰기로 쓰인 제어 문자는 공백으로 바꾼다', () => {
+    assert.equal(itemsToText([item('김가상\u0001프론트엔드\u0001개발자', 0, 200)]), '김가상 프론트엔드 개발자')
+  })
+
   it('글자가 없는 조각은 버린다', () => {
     assert.equal(itemsToText([item('   ', 0, 300), item('', 0, 250), item('내용', 0, 200)]), '내용')
   })
