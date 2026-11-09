@@ -7,6 +7,8 @@ type Fetcher = (url: string, init?: RequestInit) => Promise<Response>;
 const MIN_TEXT_LENGTH = 500;
 const MAX_TEXT_LENGTH = 30_000;
 const TIMEOUT_MS = 10_000;
+const MAX_REDIRECTS = 5;
+const MAX_RESPONSE_BYTES = 5 * 1024 * 1024;
 const USER_AGENT = 'jobmap/0.1 (job posting reader)';
 const REQUIREMENT_WORDS = /자격|요건|우대|필수|qualification|requirement|experience/i;
 
@@ -110,6 +112,49 @@ export function isAllowedUrl(raw: string): boolean {
 	return !isIpLiteral && !isInternalName;
 }
 
+/** 리다이렉트를 직접 따라가며 주소마다 검사한다. 내부 주소로 넘어가면 요청하지 않는다. */
+async function fetchChecked(raw: string, fetcher: Fetcher): Promise<Response | 'invalid_url' | 'too_many_redirects'> {
+	let current = raw;
+	for (let hop = 0; hop <= MAX_REDIRECTS; hop += 1) {
+		const response = await fetcher(current, {
+			signal: AbortSignal.timeout(TIMEOUT_MS),
+			headers: { 'user-agent': USER_AGENT },
+			redirect: 'manual',
+		});
+		const location = response.headers.get('location');
+		if (response.status < 300 || response.status >= 400 || !location) return response;
+
+		current = new URL(location, current).href;
+		if (!isAllowedUrl(current)) return 'invalid_url';
+	}
+	return 'too_many_redirects';
+}
+
+/** 크기 제한까지만 읽는다. 넘으면 null을 돌려준다. */
+async function readLimited(response: Response): Promise<Uint8Array | null> {
+	if (!response.body) return new Uint8Array();
+	const reader = response.body.getReader();
+	const chunks: Uint8Array[] = [];
+	let total = 0;
+	for (;;) {
+		const { done, value } = await reader.read();
+		if (done) break;
+		total += value.byteLength;
+		if (total > MAX_RESPONSE_BYTES) {
+			await reader.cancel();
+			return null;
+		}
+		chunks.push(value);
+	}
+	const bytes = new Uint8Array(total);
+	let offset = 0;
+	for (const chunk of chunks) {
+		bytes.set(chunk, offset);
+		offset += chunk.byteLength;
+	}
+	return bytes;
+}
+
 export async function readPosting(
 	raw: string,
 	fetcher: Fetcher = (url, init) => fetch(url, init),
@@ -118,12 +163,15 @@ export async function readPosting(
 
 	let html: string;
 	try {
-		const response = await fetcher(raw, { signal: AbortSignal.timeout(TIMEOUT_MS), headers: { 'user-agent': USER_AGENT } });
-		if (!response.ok) return { ok: false, reason: 'fetch_failed' };
+		const response = await fetchChecked(raw, fetcher);
+		if (response === 'invalid_url') return { ok: false, reason: 'invalid_url' };
+		if (response === 'too_many_redirects' || !response.ok) return { ok: false, reason: 'fetch_failed' };
 		const contentType = response.headers.get('content-type') ?? '';
 		if (!contentType.includes('text/html')) return { ok: false, reason: 'not_html' };
 		const charset = /charset=([^;\s]+)/i.exec(contentType)?.[1] ?? 'utf-8';
-		html = new TextDecoder(charset).decode(await response.arrayBuffer());
+		const bytes = await readLimited(response);
+		if (!bytes) return { ok: false, reason: 'fetch_failed' };
+		html = new TextDecoder(charset).decode(bytes);
 	} catch {
 		return { ok: false, reason: 'fetch_failed' };
 	}

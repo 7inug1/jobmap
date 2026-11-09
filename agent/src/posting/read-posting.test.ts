@@ -166,6 +166,43 @@ describe('readPosting', () => {
 		});
 	});
 
+	it('허용된 주소로의 리다이렉트는 따라간다', async () => {
+		const seen: string[] = [];
+		const result = await readPosting('https://example.com/old', async (url) => {
+			seen.push(url);
+			if (url.endsWith('/old')) return new Response(null, { status: 302, headers: { location: '/new' } });
+			return page(`<main><p>${LONG}</p></main>`)();
+		});
+		expect(seen).toEqual(['https://example.com/old', 'https://example.com/new']);
+		expect(result).toEqual({ ok: true, text: LONG.trim() });
+	});
+
+	it('내부 주소로의 리다이렉트는 요청하지 않는다', async () => {
+		const seen: string[] = [];
+		const result = await readPosting('https://example.com/old', async (url) => {
+			seen.push(url);
+			return new Response(null, { status: 302, headers: { location: 'https://localhost/secret' } });
+		});
+		expect(seen).toEqual(['https://example.com/old']);
+		expect(result).toEqual({ ok: false, reason: 'invalid_url' });
+	});
+
+	it('리다이렉트가 끝없이 이어지면 읽기 실패다', async () => {
+		let calls = 0;
+		const result = await readPosting('https://example.com/a', async () => {
+			calls += 1;
+			return new Response(null, { status: 302, headers: { location: `/next${calls}` } });
+		});
+		expect(result).toEqual({ ok: false, reason: 'fetch_failed' });
+		expect(calls).toBeLessThanOrEqual(6);
+	});
+
+	it('응답이 너무 크면 끝까지 읽지 않고 실패로 본다', async () => {
+		const huge = async () =>
+			new Response(new Uint8Array(6 * 1024 * 1024), { headers: { 'content-type': 'text/html' } });
+		expect(await readPosting('https://example.com/job', huge)).toEqual({ ok: false, reason: 'fetch_failed' });
+	});
+
 	it('글이 거의 없는 페이지는 본문을 못 읽은 것으로 본다', async () => {
 		const result = await readPosting('https://example.com/job', page('<main><div id="root">로딩</div></main>'));
 		expect(result).toEqual({ ok: false, reason: 'no_text' });
