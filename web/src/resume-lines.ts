@@ -14,11 +14,14 @@ function joinLine(line: TextItem[]): string {
     }, '')
 }
 
-/** PDF 한 쪽의 글자 조각을 위치 기준으로 읽는 순서의 줄로 묶는다. */
+/**
+ * PDF 한 쪽의 글자 조각을 줄로 묶는다.
+ * 위치로 다시 정렬하면 2단 문서의 왼쪽과 오른쪽이 섞이므로 PDF에 적힌 순서를 그대로 쓴다.
+ */
 export function itemsToText(items: readonly TextItem[]): string {
   const lines: TextItem[][] = []
 
-  for (const item of items.filter(({ str }) => str.trim() !== '').toSorted((a, b) => b.transform[5] - a.transform[5])) {
+  for (const item of items.filter(({ str }) => str.trim() !== '')) {
     const current = lines.at(-1)
     const sameLine = current && Math.abs(current[0].transform[5] - item.transform[5]) <= item.height * SAME_LINE_RATIO
     if (sameLine) current.push(item)

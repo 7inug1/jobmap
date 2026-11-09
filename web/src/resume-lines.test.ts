@@ -10,8 +10,13 @@ const item = (str: string, x: number, y: number, width = str.length * 10) => ({
 })
 
 describe('itemsToText', () => {
-  it('위에서 아래로 줄을 나누고 줄 안에서는 왼쪽부터 읽는다', () => {
-    assert.equal(itemsToText([item('아래 줄', 0, 100), item('뒤', 50, 200), item('앞', 0, 200)]), '앞 뒤\n아래 줄')
+  it('같은 줄 조각은 왼쪽부터 읽는다', () => {
+    assert.equal(itemsToText([item('뒤', 50, 200), item('앞', 0, 200)]), '앞 뒤')
+  })
+
+  it('2단 문서는 PDF에 적힌 순서대로 왼쪽 단을 먼저 읽는다', () => {
+    const items = [item('왼쪽 첫 줄', 0, 200), item('왼쪽 둘째 줄', 0, 188), item('오른쪽 첫 줄', 300, 200), item('오른쪽 둘째 줄', 300, 188)]
+    assert.equal(itemsToText(items), '왼쪽 첫 줄\n왼쪽 둘째 줄\n오른쪽 첫 줄\n오른쪽 둘째 줄')
   })
 
   it('높이가 조금 달라도 같은 줄로 본다', () => {
