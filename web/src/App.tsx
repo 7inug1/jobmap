@@ -6,6 +6,7 @@ import { readResumePdf } from './resume-pdf.ts'
 import {
   annotatePosting,
   applyEdits,
+  buildWeekPlan,
   gapsFromRows,
   pickKey,
   readComparison,
@@ -16,16 +17,25 @@ import {
   type EditedRow,
   type Gap,
   type Verdict,
+  type WeekTask,
 } from './comparison.ts'
 
 const RUN_KEY = 'jobmap-run'
 
 type Inputs = { posting: string; resume: string }
 type DirectionsRun = { gaps: Gap[]; directions: Direction[]; picks: string[] }
-type Run = Inputs & { id: string; edits: Record<number, Verdict>; stage?: 'directions'; directions?: DirectionsRun }
+type Run = Inputs & {
+  id: string
+  edits: Record<number, Verdict>
+  stage?: 'directions' | 'plan'
+  directions?: DirectionsRun
+  weeklyHours?: number
+  doneTasks?: string[]
+}
 
-// 서비스의 기본 약속. 사용자가 바꾸는 입력은 플래너 단계에서 넣는다.
-const WEEKLY_HOURS = 3
+// 서비스의 기본 약속. 이번 주 할 일 화면에서 바꿀 수 있다.
+const DEFAULT_WEEKLY_HOURS = 3
+const WEEKLY_HOUR_CHOICES = [1, 2, 3, 5, 8, 10, 15, 20]
 
 const VERDICTS: { value: Verdict; label: string; className: string }[] = [
   { value: 'met', label: '충족', className: 'ok' },
@@ -310,13 +320,29 @@ function Comparison({
     onChange({ ...run, stage: 'directions', directions: { gaps, directions, picks: [] } })
   }
 
+  if (run.stage === 'plan' && run.directions) {
+    return (
+      <WeekPlan
+        directions={run.directions.directions}
+        picks={run.directions.picks}
+        doneKeys={run.doneTasks ?? []}
+        weeklyHours={run.weeklyHours ?? DEFAULT_WEEKLY_HOURS}
+        onDone={(doneTasks) => onChange({ ...run, doneTasks })}
+        onWeeklyHours={(weeklyHours) => onChange({ ...run, weeklyHours })}
+        onBack={() => onChange({ ...run, stage: 'directions' })}
+        onRestart={onRestart}
+      />
+    )
+  }
   if (run.stage === 'directions' && run.directions) {
     const saved = run.directions
     return (
       <DirectionPicker
         directions={saved.directions}
         picks={saved.picks}
+        weeklyHours={run.weeklyHours ?? DEFAULT_WEEKLY_HOURS}
         onPicks={(picks) => onChange({ ...run, directions: { ...saved, picks } })}
+        onConfirm={() => onChange({ ...run, stage: 'plan' })}
         onBack={() => onChange({ ...run, stage: undefined })}
       />
     )
@@ -508,15 +534,19 @@ function Annotation({ row, onVerdict }: { row: EditedRow; onVerdict: (verdict: V
 function DirectionPicker({
   directions,
   picks,
+  weeklyHours,
   onPicks,
+  onConfirm,
   onBack,
 }: {
   directions: Direction[]
   picks: string[]
+  weeklyHours: number
   onPicks: (picks: string[]) => void
+  onConfirm: () => void
   onBack: () => void
 }) {
-  const { studyHours, projectHours, weeks } = summarizePicks(directions, picks, WEEKLY_HOURS)
+  const { studyHours, projectHours, weeks } = summarizePicks(directions, picks, weeklyHours)
   const toggle = (key: string) => onPicks(picks.includes(key) ? picks.filter((pick) => pick !== key) : [...picks, key])
   const basket = (lane: DirectionOption['lane']) =>
     directions.flatMap(({ gapNumber, options }) =>
@@ -574,7 +604,7 @@ function DirectionPicker({
       ))}
       <p className="lead-line">
         {picks.length > 0
-          ? `이력서 ${projectHours}시간, 공부 ${studyHours}시간이에요. 일주일 ${WEEKLY_HOURS}시간이면 약 ${weeks}주 걸려요.`
+          ? `이력서 ${projectHours}시간, 공부 ${studyHours}시간이에요. 일주일 ${weeklyHours}시간이면 약 ${weeks}주 걸려요.`
           : '고르지 않은 항목은 이번에 하지 않아요.'}
       </p>
       <div className="actions-row">
@@ -583,14 +613,101 @@ function DirectionPicker({
             추천대로 고르기
           </button>
         ) : null}
-        <button className="btn" type="button" disabled>
+        <button className="btn" type="button" disabled={picks.length === 0} onClick={onConfirm}>
           이대로 할게요
         </button>
         <button className="btn-line" type="button" onClick={onBack}>
           비교 결과로 돌아가기
         </button>
       </div>
-      <p className="small">다음 단계인 이력서 문장 화면은 아직 만드는 중이에요.</p>
+    </>
+  )
+}
+
+function WeekPlan({
+  directions,
+  picks,
+  doneKeys,
+  weeklyHours,
+  onDone,
+  onWeeklyHours,
+  onBack,
+  onRestart,
+}: {
+  directions: Direction[]
+  picks: string[]
+  doneKeys: string[]
+  weeklyHours: number
+  onDone: (doneKeys: string[]) => void
+  onWeeklyHours: (hours: number) => void
+  onBack: () => void
+  onRestart: () => void
+}) {
+  const { thisWeek, later, done, hoursThisWeek, weeksLeft } = buildWeekPlan(directions, picks, doneKeys, weeklyHours)
+  const toggle = (key: string) => onDone(doneKeys.includes(key) ? doneKeys.filter((item) => item !== key) : [...doneKeys, key])
+  const finished = thisWeek.length === 0
+
+  const row = (task: WeekTask, checkable: boolean) => (
+    <li className={`task${doneKeys.includes(task.key) ? ' done' : ''}`} key={task.key}>
+      {checkable ? (
+        <input
+          type="checkbox"
+          aria-label={`${task.label} 완료`}
+          checked={doneKeys.includes(task.key)}
+          onChange={() => toggle(task.key)}
+        />
+      ) : (
+        <span aria-hidden="true" />
+      )}
+      <div className="task-body">
+        <b>{task.label}</b>
+        <span className="small">{task.description}</span>
+        <span className="small">
+          {task.lane === 'study' ? '공부' : '프로젝트'}, 약 {task.hours}시간. 채우는 요건: {task.requirement}
+        </span>
+      </div>
+    </li>
+  )
+
+  return (
+    <>
+      <div className="head">
+        <h1>{finished ? '고른 일을 모두 끝냈어요' : '이번 주에는 이것만 하면 돼요'}</h1>
+        <span className="lead-line">
+          {finished ? '수고했어요. 이제 지원해 봐도 좋아요.' : `약 ${hoursThisWeek}시간이에요. 이 속도면 ${weeksLeft}주 뒤에 고른 일을 다 끝내요.`}
+        </span>
+      </div>
+      <label className="hours-field">
+        일주일에 쓸 수 있는 시간
+        <select value={weeklyHours} onChange={(event) => onWeeklyHours(Number(event.target.value))}>
+          {WEEKLY_HOUR_CHOICES.map((hours) => (
+            <option key={hours} value={hours}>
+              {hours}시간
+            </option>
+          ))}
+        </select>
+      </label>
+      {finished ? null : <ul className="task-list">{thisWeek.map((task) => row(task, true))}</ul>}
+      {later.length > 0 ? (
+        <section className="task-section">
+          <h2>다음에 할 일</h2>
+          <ul className="task-list">{later.map((task) => row(task, false))}</ul>
+        </section>
+      ) : null}
+      {done.length > 0 ? (
+        <section className="task-section">
+          <h2>끝낸 일</h2>
+          <ul className="task-list">{done.map((task) => row(task, true))}</ul>
+        </section>
+      ) : null}
+      <div className="actions-row">
+        <button className="btn-line" type="button" onClick={onBack}>
+          방향 다시 고르기
+        </button>
+        <button className="btn-line" type="button" onClick={onRestart}>
+          다른 공고로 비교하기
+        </button>
+      </div>
     </>
   )
 }
