@@ -1,5 +1,6 @@
-import { defineTool } from '@flue/runtime';
+import { defineTool } from '@flue/runtime/tool';
 import * as v from 'valibot';
+import { checkEvidence, restoreQuote, type EvidenceIssue } from '../evidence/check-evidence.ts';
 
 export const comparisonRow = v.object({
 	requirement: v.string(),
@@ -8,40 +9,52 @@ export const comparisonRow = v.object({
 	resumeQuote: v.nullable(v.string()),
 });
 
-export const comparisonOutput = v.object({ rows: v.array(comparisonRow) });
+export const comparison = v.object({ rows: v.array(comparisonRow) });
 
-/**
- * 프레임워크 동작 확인용 가짜 도구. 입력과 무관하게 고정된 표를 돌려준다.
- * 실제 공고 비교로 교체하기 전까지만 쓴다.
- */
-export function createFakeComparison(onProgress: (step: string) => void) {
+const REASON_TEXT: Record<EvidenceIssue['reason'], string> = {
+	not_found: '원문에 없는 문장입니다. 원문을 글자 그대로 복사하세요',
+	empty: '근거가 비어 있습니다',
+	missing: '충족이나 일부 충족이면 이력서 근거가 필요합니다. 없으면 unmet으로 판단하세요',
+};
+
+function describeIssue({ rowIndex, field, reason }: EvidenceIssue): string {
+	return `${rowIndex + 1}번째 행 ${field}: ${REASON_TEXT[reason]}`;
+}
+
+/** 비교 표를 받아 근거 문장을 코드로 확인한다. 틀리면 도구 오류로 돌려보내 모델이 고치게 한다. */
+export function createSaveComparison({
+	posting,
+	resume,
+	onProgress,
+}: {
+	posting: string;
+	resume: string;
+	onProgress: (step: string) => void;
+}) {
 	return defineTool({
 		name: 'save_comparison',
-		description: '연결 확인용 도구. 사용자가 비교를 요청하면 한 번 호출한다.',
-		output: comparisonOutput,
-		async run() {
-			onProgress('공고 읽기');
-			await new Promise((resolve) => setTimeout(resolve, 800));
-			onProgress('이력서와 비교하기');
-			await new Promise((resolve) => setTimeout(resolve, 800));
-			return {
-				output: {
-					rows: [
-						{
-							requirement: '[가짜 데이터] React, TypeScript 경험',
-							verdict: 'met' as const,
-							postingQuote: '가짜 공고 문장',
-							resumeQuote: '가짜 이력서 문장',
-						},
-						{
-							requirement: '[가짜 데이터] 테스트 코드 작성 경험',
-							verdict: 'unmet' as const,
-							postingQuote: '가짜 공고 문장',
-							resumeQuote: null,
-						},
-					],
-				},
-			};
+		description:
+			'공고 요건별 비교 표를 저장한다. 근거 문장이 원문에 없으면 오류를 돌려주므로, 오류에 적힌 행을 고쳐 다시 호출한다.',
+		input: comparison,
+		output: comparison,
+		run({ data }) {
+			onProgress('근거 문장 확인하기');
+			if (data.rows.length === 0) throw new Error('요건이 하나도 없습니다. 공고의 요건을 행으로 적으세요.');
+
+			const rows = data.rows.map((row) => {
+				const postingQuote = restoreQuote(row.postingQuote, posting);
+				return {
+					...row,
+					requirement: row.requirement.includes('\uFFFD') ? postingQuote : row.requirement,
+					postingQuote,
+					resumeQuote: row.resumeQuote === null ? null : restoreQuote(row.resumeQuote, resume),
+				};
+			});
+
+			const issues = checkEvidence(rows, { posting, resume });
+			if (issues.length > 0) throw new Error(issues.map(describeIssue).join('\n'));
+
+			return { output: { rows } };
 		},
 	});
 }
