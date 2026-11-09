@@ -37,7 +37,7 @@
 body { margin: 0; background: var(--bg); color: var(--fg); font: 16px/1.6 var(--sans); }
 h1, h3, p { margin: 0; }
 button { font: inherit; color: inherit; background: none; border: 0; cursor: pointer; }
-textarea { width: 100%; padding: 10px 12px; font: inherit; color: inherit; background: var(--bg); border: 1px solid var(--line); border-radius: 9px; resize: vertical; }
+input, textarea { width: 100%; padding: 10px 12px; font: inherit; color: inherit; background: var(--bg); border: 1px solid var(--line); border-radius: 9px; resize: vertical; }
 
 .page { display: grid; gap: 24px; width: min(760px, 100%); margin-inline: auto; padding: 48px max(16px, 3vw); }
 .start h1 { font-size: clamp(30px, 4.4vw, 42px); line-height: 1.25; font-weight: 800; letter-spacing: -.025em; text-wrap: balance; }
@@ -45,6 +45,10 @@ textarea { width: 100%; padding: 10px 12px; font: inherit; color: inherit; backg
 .form { display: grid; gap: 18px; padding: 22px; border: 1px solid var(--line); border-radius: 14px; }
 .field { display: grid; gap: 6px; }
 .field > label { font-weight: 700; }
+.url-row { display: flex; gap: 8px; }
+.url-row input { flex: 1; min-width: 0; }
+.url-row button { flex: none; }
+.btn-line:disabled { color: var(--mfg); cursor: not-allowed; }
 .small { font-size: 13px; color: var(--mfg); }
 .error { color: var(--gap); font-weight: 500; }
 

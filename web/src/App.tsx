@@ -1,6 +1,6 @@
 import { useFlueAgent } from '@flue/react'
 import { createFlueClient } from '@flue/sdk'
-import { useState, type FormEvent } from 'react'
+import { useState, type FormEvent, type KeyboardEvent } from 'react'
 import { annotatePosting, applyEdits, readComparison, type EditedRow, type Verdict } from './comparison.ts'
 
 const RUN_KEY = 'jobmap-run'
@@ -13,6 +13,13 @@ const VERDICTS: { value: Verdict; label: string; className: string }[] = [
   { value: 'partial', label: '일부 충족', className: 'part' },
   { value: 'unmet', label: '불충족', className: 'lack' },
 ]
+
+const POSTING_ERRORS: Record<string, string> = {
+  invalid_url: 'https로 시작하는 공고 주소를 넣어 주세요.',
+  fetch_failed: '이 주소를 열지 못했어요. 주소를 확인하거나 본문을 붙여 넣어 주세요.',
+  not_html: '웹 페이지 주소만 읽을 수 있어요. 본문을 붙여 넣어 주세요.',
+  no_text: '이 페이지에서 공고 글을 찾지 못했어요. 본문을 붙여 넣어 주세요.',
+}
 
 function loadRun(): Run | null {
   try {
@@ -69,7 +76,32 @@ function Start({ initial, onStarted }: { initial: Inputs; onStarted: (run: Run) 
   const [resume, setResume] = useState(initial.resume)
   const [sending, setSending] = useState(false)
   const [failed, setFailed] = useState(false)
+  const [url, setUrl] = useState('')
+  const [loadingUrl, setLoadingUrl] = useState(false)
+  const [urlError, setUrlError] = useState<string | null>(null)
   const ready = posting.trim() !== '' && resume.trim() !== '' && !sending
+
+  async function loadPosting() {
+    if (url.trim() === '' || loadingUrl) return
+    setLoadingUrl(true)
+    setUrlError(null)
+    try {
+      const response = await fetch(`/api/posting?url=${encodeURIComponent(url.trim())}`)
+      const result = (await response.json()) as { ok: true; text: string } | { ok: false; reason: string }
+      if (result.ok) setPosting(result.text)
+      else setUrlError(POSTING_ERRORS[result.reason])
+    } catch {
+      setUrlError(POSTING_ERRORS.fetch_failed)
+    } finally {
+      setLoadingUrl(false)
+    }
+  }
+
+  function loadOnEnter(event: KeyboardEvent) {
+    if (event.key !== 'Enter' || event.nativeEvent.isComposing) return
+    event.preventDefault()
+    void loadPosting()
+  }
 
   async function submit(event: FormEvent) {
     event.preventDefault()
@@ -93,13 +125,44 @@ function Start({ initial, onStarted }: { initial: Inputs; onStarted: (run: Run) 
       <form className="form" onSubmit={submit}>
         <div className="field">
           <label htmlFor="resume">내 이력서</label>
-          <textarea id="resume" rows={8} value={resume} onChange={(event) => setResume(event.target.value)} />
-          <span className="small">이력서 내용을 그대로 붙여 넣어 주세요.</span>
+          <textarea
+            id="resume"
+            rows={8}
+            placeholder="이력서 내용을 붙여 넣어 주세요"
+            value={resume}
+            onChange={(event) => setResume(event.target.value)}
+          />
         </div>
         <div className="field">
-          <label htmlFor="posting">가고 싶은 공고</label>
-          <textarea id="posting" rows={8} value={posting} onChange={(event) => setPosting(event.target.value)} />
-          <span className="small">공고 본문을 그대로 붙여 넣어 주세요.</span>
+          <label htmlFor="posting-url">가고 싶은 공고</label>
+          <div className="url-row">
+            <input
+              id="posting-url"
+              type="url"
+              inputMode="url"
+              placeholder="https://careers.daangn.com/jobs/role/..."
+              value={url}
+              onChange={(event) => setUrl(event.target.value)}
+              onKeyDown={loadOnEnter}
+            />
+            <button className="btn-line" type="button" disabled={url.trim() === '' || loadingUrl} onClick={loadPosting}>
+              {loadingUrl ? '불러오는 중' : '불러오기'}
+            </button>
+          </div>
+          {urlError ? (
+            <p className="error" role="alert">
+              {urlError}
+            </p>
+          ) : null}
+          <textarea
+            id="posting"
+            aria-label="공고 본문"
+            rows={8}
+            placeholder="링크를 불러오면 본문이 여기에 들어와요. 직접 붙여 넣어도 돼요."
+            value={posting}
+            onChange={(event) => setPosting(event.target.value)}
+          />
+          <span className="small">불러온 글에서 공고와 상관없는 부분은 지워도 돼요.</span>
         </div>
         {failed ? (
           <p className="error" role="alert">
