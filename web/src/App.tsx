@@ -347,7 +347,7 @@ function Comparison({
       />
     )
   }
-  if (view.phase === 'working') return <Working step={view.step} />
+  if (view.phase === 'working') return <Working step={view.step} onRestart={onRestart} />
   if (view.phase === 'failed') return <Failed run={run} onChange={onChange} onRestart={onRestart} />
 
   const rows = applyEdits(view.rows, run.edits)
@@ -362,7 +362,7 @@ function Comparison({
   )
 }
 
-function Working({ step }: { step: string | null }) {
+function Working({ step, onRestart }: { step: string | null; onRestart: () => void }) {
   return (
     <>
       <div className="head">
@@ -377,6 +377,11 @@ function Working({ step }: { step: string | null }) {
           <span className="icon">{step ? <span className="dot" /> : null}</span>
           <b>근거 문장이 원문에 있는지 확인하기</b>
         </div>
+      </div>
+      <div className="actions-row">
+        <button className="btn-line" type="button" onClick={onRestart}>
+          처음으로 돌아가기
+        </button>
       </div>
     </>
   )
