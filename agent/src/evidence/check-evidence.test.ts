@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { checkEvidence } from './check-evidence.ts';
+import { checkEvidence, restoreQuote } from './check-evidence.ts';
 
 const sources = {
 	posting: '자격 요건\nReact와 TypeScript로 3년 이상 개발한 경험이 있어요.\n테스트 코드를 작성해 본 경험이 있어요.',
@@ -71,5 +71,33 @@ describe('checkEvidence', () => {
 	it('불충족은 이력서 근거가 없어도 된다', () => {
 		const rows = [{ ...row, verdict: 'unmet' as const, resumeQuote: null }];
 		expect(checkEvidence(rows, sources)).toEqual([]);
+	});
+});
+
+describe('restoreQuote', () => {
+	const source = '쇼핑몰 주문 화면을 React로 4년 동안 만들고\n운영했습니다.\n주문 폼에 단위 테스트를 작성했습니다.';
+
+	it('깨진 글자가 없으면 그대로 돌려준다', () => {
+		expect(restoreQuote('아무 문장', source)).toBe('아무 문장');
+	});
+
+	it('깨진 글자를 원문의 글자로 되돌린다', () => {
+		expect(restoreQuote('����몰 주문 화면을 React로', source)).toBe('쇼핑몰 주문 화면을 React로');
+		expect(restoreQuote('주문 ��에 단위 테스트', source)).toBe('주문 폼에 단위 테스트');
+	});
+
+	it('원문에 없는 문장은 복원하지 않아 확인에서 걸리게 한다', () => {
+		const quote = '����몰 결제 화면을 Vue로';
+		expect(restoreQuote(quote, source)).toBe(quote);
+	});
+
+	it('후보가 둘 이상이면 고르지 않는다', () => {
+		const quote = '주문 ��을 만들었습니다';
+		expect(restoreQuote(quote, '주문 폼을 만들었습니다. 주문 창을 만들었습니다')).toBe(quote);
+	});
+
+	it('글자가 거의 다 깨졌으면 복원하지 않는다', () => {
+		expect(restoreQuote('�����', source)).toBe('�����');
+		expect(restoreQuote('��에', source)).toBe('��에');
 	});
 });
