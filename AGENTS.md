@@ -31,7 +31,7 @@
 
 ## 커밋
 
-[Conventional Commits 1.0.0](https://www.conventionalcommits.org/ko/v1.0.0/)을 따르고 commitlint가 CI에서 검사한다.
+[Conventional Commits 1.0.0](https://www.conventionalcommits.org/ko/v1.0.0/)을 따르고 `npx commitlint`로 검사한다.
 
 - 제목: `feat:`, `fix:`, `docs:`, `test:`, `chore:`, `ci:`, `refactor:` + 한국어 명사형 한 줄 ("~ 추가", "~ 수정")
 - 본문: 필요할 때만. 소제목(문제, 변경, 측정) 아래 `-` 불릿
