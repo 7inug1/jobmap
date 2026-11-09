@@ -3,12 +3,29 @@ import { createFlueClient } from '@flue/sdk'
 import { useState, type ChangeEvent, type FormEvent } from 'react'
 import { classifyPostingUrl, SUPPORTED, UNSUPPORTED } from './posting-sources.ts'
 import { readResumePdf } from './resume-pdf.ts'
-import { annotatePosting, applyEdits, readComparison, type EditedRow, type Verdict } from './comparison.ts'
+import {
+  annotatePosting,
+  applyEdits,
+  gapsFromRows,
+  pickKey,
+  readComparison,
+  recommendedPicks,
+  summarizePicks,
+  type Direction,
+  type DirectionOption,
+  type EditedRow,
+  type Gap,
+  type Verdict,
+} from './comparison.ts'
 
 const RUN_KEY = 'jobmap-run'
 
 type Inputs = { posting: string; resume: string }
-type Run = Inputs & { id: string; edits: Record<number, Verdict> }
+type DirectionsRun = { gaps: Gap[]; directions: Direction[]; picks: string[] }
+type Run = Inputs & { id: string; edits: Record<number, Verdict>; stage?: 'directions'; directions?: DirectionsRun }
+
+// 서비스의 기본 약속. 사용자가 바꾸는 입력은 플래너 단계에서 넣는다.
+const WEEKLY_HOURS = 3
 
 const VERDICTS: { value: Verdict; label: string; className: string }[] = [
   { value: 'met', label: '충족', className: 'ok' },
@@ -48,6 +65,17 @@ async function startRun(inputs: Inputs): Promise<Run> {
   const client = createFlueClient({ url: new URL(`/agents/jobmap/${id}`, location.origin).href })
   await client.send({ message: { kind: 'user', body: '공고와 이력서를 비교해 주세요' }, initialData: inputs })
   return { ...inputs, id, edits: {} }
+}
+
+async function fetchDirections(gaps: Gap[], resume: string): Promise<Direction[]> {
+  const response = await fetch('/api/directions', {
+    method: 'POST',
+    headers: { 'content-type': 'application/json' },
+    body: JSON.stringify({ gaps, resume }),
+  })
+  const result = (await response.json()) as { ok: true; directions: Direction[] } | { ok: false }
+  if (!result.ok) throw new Error('directions_failed')
+  return result.directions
 }
 
 export default function App() {
@@ -273,6 +301,26 @@ function Comparison({
   const agent = useFlueAgent({ url: `/agents/jobmap/${run.id}` })
   const view = readComparison(agent.messages, agent.settlements, agent.status)
 
+  async function openDirections(gaps: Gap[]) {
+    if (run.directions && JSON.stringify(run.directions.gaps) === JSON.stringify(gaps)) {
+      onChange({ ...run, stage: 'directions' })
+      return
+    }
+    const directions = await fetchDirections(gaps, run.resume)
+    onChange({ ...run, stage: 'directions', directions: { gaps, directions, picks: [] } })
+  }
+
+  if (run.stage === 'directions' && run.directions) {
+    const saved = run.directions
+    return (
+      <DirectionPicker
+        directions={saved.directions}
+        picks={saved.picks}
+        onPicks={(picks) => onChange({ ...run, directions: { ...saved, picks } })}
+        onBack={() => onChange({ ...run, stage: undefined })}
+      />
+    )
+  }
   if (view.phase === 'working') return <Working step={view.step} />
   if (view.phase === 'failed') return <Failed run={run} onChange={onChange} onRestart={onRestart} />
 
@@ -282,6 +330,7 @@ function Comparison({
       posting={run.posting}
       rows={rows}
       onVerdict={(index, verdict) => onChange({ ...run, edits: { ...run.edits, [index]: verdict } })}
+      onNext={openDirections}
       onRestart={onRestart}
     />
   )
@@ -349,13 +398,30 @@ function Result({
   posting,
   rows,
   onVerdict,
+  onNext,
   onRestart,
 }: {
   posting: string
   rows: EditedRow[]
   onVerdict: (index: number, verdict: Verdict) => void
+  onNext: (gaps: Gap[]) => Promise<void>
   onRestart: () => void
 }) {
+  const [opening, setOpening] = useState(false)
+  const [openFailed, setOpenFailed] = useState(false)
+  const gaps = gapsFromRows(rows)
+
+  async function next() {
+    setOpening(true)
+    setOpenFailed(false)
+    try {
+      await onNext(gaps)
+    } catch {
+      setOpenFailed(true)
+      setOpening(false)
+    }
+  }
+
   const { lines, unplaced } = annotatePosting(posting, rows)
   const met = rows.filter((row) => row.verdict === 'met').length
   const annotation = (index: number) => (
@@ -391,7 +457,18 @@ function Result({
           </div>
         ) : null}
       </article>
+      {openFailed ? (
+        <p className="error" role="alert">
+          채울 방법을 정리하지 못했어요. 다시 눌러 주세요.
+        </p>
+      ) : null}
+      {gaps.length === 0 ? <p className="lead-line">부족한 요건이 없어요. 바로 지원해 봐도 좋아요.</p> : null}
       <div className="actions-row">
+        {gaps.length > 0 ? (
+          <button className="btn" type="button" disabled={opening} onClick={next}>
+            {opening ? '채울 방법을 정리하는 중' : '다음으로'}
+          </button>
+        ) : null}
         <button className="btn-line" type="button" onClick={onRestart}>
           다른 공고로 비교하기
         </button>
@@ -425,5 +502,95 @@ function Annotation({ row, onVerdict }: { row: EditedRow; onVerdict: (verdict: V
       <span>{row.resumeQuote ?? '이력서에서 근거를 찾지 못했어요.'}</span>
       {edited ? <span className="small">처음에는 {original}(으)로 봤어요.</span> : null}
     </div>
+  )
+}
+
+function DirectionPicker({
+  directions,
+  picks,
+  onPicks,
+  onBack,
+}: {
+  directions: Direction[]
+  picks: string[]
+  onPicks: (picks: string[]) => void
+  onBack: () => void
+}) {
+  const { studyHours, projectHours, weeks } = summarizePicks(directions, picks, WEEKLY_HOURS)
+  const toggle = (key: string) => onPicks(picks.includes(key) ? picks.filter((pick) => pick !== key) : [...picks, key])
+  const basket = (lane: DirectionOption['lane']) =>
+    directions.flatMap(({ gapNumber, options }) =>
+      options.flatMap((option, index) => {
+        const key = pickKey(gapNumber, index)
+        return option.lane === lane && picks.includes(key) ? [{ key, label: option.label }] : []
+      }),
+    )
+  const basketColumn = (lane: DirectionOption['lane'], title: string, empty: string) => (
+    <div className="basket-col">
+      <span className="tag">{title}</span>
+      {basket(lane).map(({ key, label }) => (
+        <button key={key} className="basket-item" type="button" aria-label={`${label} 빼기`} onClick={() => toggle(key)}>
+          {label} ✕
+        </button>
+      ))}
+      {basket(lane).length === 0 ? <span className="small">{empty}</span> : null}
+    </div>
+  )
+
+  return (
+    <>
+      <div className="head">
+        <h1>부족한 부분, 어떻게 채워 볼까요?</h1>
+        <span className="lead-line">하고 싶은 것만 고르세요. 공부와 프로젝트를 함께 골라도 좋아요.</span>
+      </div>
+      <section className="basket" aria-live="polite">
+        {basketColumn('study', '지식에 남아요', '공부를 고르면 담겨요.')}
+        {basketColumn('project', '이력서에 남아요', '프로젝트를 고르면 담겨요.')}
+      </section>
+      {directions.map(({ gapNumber, requirement, options }) => (
+        <section className="dir-card" key={gapNumber}>
+          <h2>{requirement}</h2>
+          <div className="dir-options">
+            {options.map((option, index) => {
+              const key = pickKey(gapNumber, index)
+              return (
+                <button key={key} className="dir-option" type="button" aria-pressed={picks.includes(key)} onClick={() => toggle(key)}>
+                  <span className="dir-title">
+                    <span className="tick" aria-hidden="true">
+                      {picks.includes(key) ? '✓' : ''}
+                    </span>
+                    <b>{option.label}</b>
+                    {option.recommended ? <span className="pill rec">추천</span> : null}
+                  </span>
+                  <span className="small">{option.description}</span>
+                  <span className="small">
+                    {option.lane === 'study' ? '공부' : '프로젝트'}, 약 {option.hours}시간
+                  </span>
+                </button>
+              )
+            })}
+          </div>
+        </section>
+      ))}
+      <p className="lead-line">
+        {picks.length > 0
+          ? `이력서 ${projectHours}시간, 공부 ${studyHours}시간이에요. 일주일 ${WEEKLY_HOURS}시간이면 약 ${weeks}주 걸려요.`
+          : '고르지 않은 항목은 이번에 하지 않아요.'}
+      </p>
+      <div className="actions-row">
+        {picks.length === 0 ? (
+          <button className="btn-line" type="button" onClick={() => onPicks(recommendedPicks(directions))}>
+            추천대로 고르기
+          </button>
+        ) : null}
+        <button className="btn" type="button" disabled>
+          이대로 할게요
+        </button>
+        <button className="btn-line" type="button" onClick={onBack}>
+          비교 결과로 돌아가기
+        </button>
+      </div>
+      <p className="small">다음 단계인 이력서 문장 화면은 아직 만드는 중이에요.</p>
+    </>
   )
 }

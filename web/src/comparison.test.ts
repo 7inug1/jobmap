@@ -1,6 +1,15 @@
 import assert from 'node:assert/strict'
 import { describe, it } from 'node:test'
-import { annotatePosting, applyEdits, readComparison, type Row } from './comparison.ts'
+import {
+  annotatePosting,
+  applyEdits,
+  gapsFromRows,
+  readComparison,
+  recommendedPicks,
+  summarizePicks,
+  type Direction,
+  type Row,
+} from './comparison.ts'
 
 const row: Row = {
   requirement: 'React 3년',
@@ -75,5 +84,51 @@ describe('annotatePosting', () => {
   it('어느 줄에도 없는 행은 따로 돌려준다', () => {
     const multiLine = { ...row, postingQuote: '이런 분과 함께하고 싶어요 - React로' }
     assert.deepEqual(annotatePosting(posting, [multiLine]).unplaced, [0])
+  })
+})
+
+describe('gapsFromRows', () => {
+  it('사용자가 바꾼 판단 기준으로 부족한 요건만 번호와 함께 고른다', () => {
+    const rows = [row, { ...row, requirement: 'B', verdict: 'partial' as const }, { ...row, requirement: 'C', verdict: 'unmet' as const }]
+    assert.deepEqual(gapsFromRows(rows), [
+      { requirement: 'B', verdict: 'partial' },
+      { requirement: 'C', verdict: 'unmet' },
+    ])
+  })
+})
+
+const directions: Direction[] = [
+  {
+    gapNumber: 1,
+    requirement: 'A',
+    verdict: 'unmet',
+    options: [
+      { label: '공부', description: '', lane: 'study', hours: 2, recommended: false },
+      { label: '프로젝트', description: '', lane: 'project', hours: 4, recommended: true },
+    ],
+  },
+  {
+    gapNumber: 2,
+    requirement: 'B',
+    verdict: 'partial',
+    options: [{ label: '공부 2', description: '', lane: 'study', hours: 3, recommended: true }],
+  },
+]
+
+describe('picks', () => {
+  it('추천 방법을 고른다', () => {
+    assert.deepEqual(recommendedPicks(directions), ['1:1', '2:0'])
+  })
+
+  it('고른 방법의 시간을 합치고 주를 올림으로 계산한다', () => {
+    assert.deepEqual(summarizePicks(directions, ['1:0', '1:1', '2:0'], 3), { studyHours: 5, projectHours: 4, weeks: 3 })
+  })
+
+  it('고른 것이 없으면 0주다', () => {
+    assert.deepEqual(summarizePicks(directions, [], 3), { studyHours: 0, projectHours: 0, weeks: 0 })
+  })
+
+  it('없어진 방법은 계산에서 뺀다', () => {
+    assert.deepEqual(summarizePicks(directions, ['9:0'], 3), { studyHours: 0, projectHours: 0, weeks: 0 })
   })
 })

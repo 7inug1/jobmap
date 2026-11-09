@@ -14,6 +14,18 @@ export type ComparisonView =
   | { phase: 'done'; rows: Row[] }
   | { phase: 'failed' }
 
+export type Gap = { requirement: string; verdict: 'partial' | 'unmet' }
+
+export type DirectionOption = {
+  label: string
+  description: string
+  lane: 'study' | 'project'
+  hours: number
+  recommended: boolean
+}
+
+export type Direction = Gap & { gapNumber: number; options: DirectionOption[] }
+
 type Part = { type: string; toolName?: string; state?: string; output?: unknown; data?: unknown }
 
 /**
@@ -62,4 +74,27 @@ export function annotatePosting(posting: string, rows: readonly Pick<Row, 'posti
   })
 
   return { lines, unplaced }
+}
+
+export function gapsFromRows(rows: readonly Row[]): Gap[] {
+  return rows.flatMap(({ requirement, verdict }) => (verdict === 'met' ? [] : [{ requirement, verdict }]))
+}
+
+export function pickKey(gapNumber: number, optionIndex: number): string {
+  return `${gapNumber}:${optionIndex}`
+}
+
+export function recommendedPicks(directions: readonly Direction[]): string[] {
+  return directions.map(({ gapNumber, options }) => pickKey(gapNumber, options.findIndex((option) => option.recommended)))
+}
+
+export function summarizePicks(directions: readonly Direction[], picks: readonly string[], weeklyHours: number) {
+  const picked = directions.flatMap(({ gapNumber, options }) =>
+    options.filter((_, index) => picks.includes(pickKey(gapNumber, index))),
+  )
+  const hoursOf = (lane: DirectionOption['lane']) =>
+    picked.filter((option) => option.lane === lane).reduce((total, option) => total + option.hours, 0)
+  const studyHours = hoursOf('study')
+  const projectHours = hoursOf('project')
+  return { studyHours, projectHours, weeks: Math.ceil((studyHours + projectHours) / weeklyHours) }
 }
