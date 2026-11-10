@@ -1,6 +1,6 @@
 import type { MiddlewareHandler } from 'hono';
 
-export type UsageKind = 'compare' | 'directions';
+export type UsageKind = 'compare' | 'directions' | 'sentences';
 
 type Options = {
 	/** 키의 오늘 사용 횟수가 한도보다 적으면 하나 세고 true를 돌려준다. */
@@ -30,5 +30,5 @@ export function createDailyLimit({ take, limits, now = () => new Date() }: Optio
 		return next();
 	};
 
-	return { compare, takeDirections: () => takeKind('directions') };
+	return { compare, takeDirections: () => takeKind('directions'), takeSentences: () => takeKind('sentences') };
 }

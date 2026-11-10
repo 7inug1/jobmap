@@ -8,6 +8,7 @@ import * as v from 'valibot';
 import { directionsRequest, generateDirections } from './directions/generate-directions.ts';
 import { createDailyLimit } from './limits/daily-limit.ts';
 import { checkRequest, validateRows } from './comparison/validate-rows.ts';
+import { generateSentences, sentencesRequest } from './sentences/generate-sentences.ts';
 import { withOutputLimit } from './model/output-limit.ts';
 import { readPosting } from './posting/read-posting.ts';
 
@@ -17,7 +18,11 @@ setProvider(cloudflareBindingProvider({ binding: withOutputLimit(env.AI, MAX_OUT
 
 const dailyLimit = createDailyLimit({
 	take: (key, limit) => env.DAILY_USAGE.getByName('global').take(key, limit),
-	limits: { compare: Number(env.DAILY_COMPARE_LIMIT ?? 50), directions: Number(env.DAILY_DIRECTIONS_LIMIT ?? 80) },
+	limits: {
+		compare: Number(env.DAILY_COMPARE_LIMIT ?? 50),
+		directions: Number(env.DAILY_DIRECTIONS_LIMIT ?? 80),
+		sentences: Number(env.DAILY_SENTENCES_LIMIT ?? 80),
+	},
 });
 
 const app = new Hono();
@@ -42,6 +47,15 @@ app.post('/api/directions', async (c) => {
 	if (!parsed.success) return c.json({ ok: false }, 400);
 	if (!(await dailyLimit.takeDirections())) return c.json({ ok: false, reason: 'daily_limit' }, 429);
 	const result = await generateDirections(env.AI as never, parsed.output);
+	return c.json(result, result.ok ? 200 : result.reason === 'quota' ? 429 : 502);
+});
+
+// 고른 프로젝트 방법을 이력서에 넣을 문장과 할 일, 들어갈 자리로 바꾼다.
+app.post('/api/resume-sentences', async (c) => {
+	const parsed = v.safeParse(sentencesRequest, await c.req.json().catch(() => null));
+	if (!parsed.success) return c.json({ ok: false }, 400);
+	if (!(await dailyLimit.takeSentences())) return c.json({ ok: false, reason: 'daily_limit' }, 429);
+	const result = await generateSentences(env.AI as never, parsed.output);
 	return c.json(result, result.ok ? 200 : result.reason === 'quota' ? 429 : 502);
 });
 

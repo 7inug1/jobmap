@@ -1,10 +1,10 @@
 import * as v from 'valibot';
+import { type AiBinding, BROKEN_CHAR, contentOf, isQuotaError, parseJson } from '../model/ai-answer.ts';
 import { MODEL_ID } from '../model/default-model.ts';
 
 const MAX_ATTEMPTS = 3;
 const MAX_OPTION_HOURS = 40;
 const MAX_TOKENS = 4096;
-const BROKEN_CHAR = '�';
 
 const option = v.object({
 	label: v.string(),
@@ -33,19 +33,7 @@ type Gap = DirectionsRequest['gaps'][number];
 export type Direction = Gap & { gapNumber: number; options: Option[] };
 export type GenerateResult = { ok: true; directions: Direction[] } | { ok: false; reason: 'quota' | 'model_failed' };
 
-type AiBinding = { run(modelId: string, inputs: never): Promise<unknown> };
-
-/** 모델 답에서 JSON을 꺼낸다. 코드 블록으로 감싸 오는 경우가 있다. */
-export function parseJson(text: string): unknown {
-	const start = text.indexOf('{');
-	const end = text.lastIndexOf('}');
-	if (start === -1 || end <= start) return null;
-	try {
-		return JSON.parse(text.slice(start, end + 1));
-	} catch {
-		return null;
-	}
-}
+export { parseJson };
 
 function keepOneRecommended(options: Option[]): Option[] {
 	const recommended = Math.max(options.findIndex((candidate) => candidate.recommended), 0);
@@ -120,17 +108,6 @@ ${gapList}
 <resume>
 ${resume}
 </resume>`;
-}
-
-/** Workers AI의 일일 무료 한도 오류(4006)인지 본다. */
-function isQuotaError(error: unknown): boolean {
-	return error instanceof Error && /\b4006\b|daily free allocation/i.test(error.message);
-}
-
-function contentOf(answer: unknown): string {
-	const { choices, response } = (answer ?? {}) as { choices?: { message?: { content?: unknown } }[]; response?: unknown };
-	const content = choices?.[0]?.message?.content ?? response;
-	return typeof content === 'string' ? content : '';
 }
 
 /**

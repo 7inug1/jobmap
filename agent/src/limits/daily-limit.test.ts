@@ -17,7 +17,7 @@ describe('usageKey', () => {
 
 function setup(allowed: boolean) {
 	const take = vi.fn(async () => allowed);
-	const limit = createDailyLimit({ take, limits: { compare: 50, directions: 80 }, now: () => new Date('2026-11-10T01:00:00Z') });
+	const limit = createDailyLimit({ take, limits: { compare: 50, directions: 80, sentences: 60 }, now: () => new Date('2026-11-10T01:00:00Z') });
 	const app = new Hono();
 	app.use('/agents/jobmap/:id', limit.compare);
 	app.post('/agents/jobmap/:id', (c) => c.text('sent'));
@@ -56,3 +56,12 @@ describe('방향 제안 제한', () => {
 		expect(take).toHaveBeenCalledWith('2026-11-10:directions', 80);
 	});
 });
+
+describe('이력서 문장 제한', () => {
+	it('이력서 문장 키와 한도로 센다', async () => {
+		const { take, limit } = setup(true);
+		expect(await limit.takeSentences()).toBe(true);
+		expect(take).toHaveBeenCalledWith('2026-11-10:sentences', 60);
+	});
+});
+
