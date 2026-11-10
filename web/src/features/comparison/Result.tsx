@@ -3,6 +3,7 @@ import { directionsFailure } from '../../shared/failure-reasons.ts'
 import type { DirectionsRun, Gap, Verdict } from '../../shared/types.ts'
 import { Annotation } from './Annotation.tsx'
 import { annotatePosting, directionsWillReset, gapsFromRows, repeatsLine, type EditedRow } from './comparison.ts'
+import { classifyLines } from './posting-lines.ts'
 import { VERDICTS } from './verdicts.ts'
 
 export function Result({
@@ -38,6 +39,7 @@ export function Result({
   }
 
   const { lines, unplaced } = annotatePosting(posting, rows)
+  const shapes = classifyLines(lines.map(({ text }) => text))
   const met = rows.filter((row) => row.verdict === 'met').length
   const annotation = (index: number, line?: string) => (
     <Annotation
@@ -64,12 +66,15 @@ export function Result({
         ))}
       </div>
       <article className="posting-doc">
-        {lines.map((line, index) => (
-          <div className="posting-item" key={index}>
-            <p>{line.text.replace(/^- /, '')}</p>
-            {line.rowIndexes.map((index) => annotation(index, line.text))}
-          </div>
-        ))}
+        {lines.map((line, index) => {
+          const { kind, text } = shapes[index]!
+          return (
+            <div className={`posting-item is-${kind}`} key={index}>
+              {kind === 'heading' ? <h3>{text}</h3> : <p>{text}</p>}
+              {line.rowIndexes.map((rowIndex) => annotation(rowIndex, line.text))}
+            </div>
+          )
+        })}
         {unplaced.length > 0 ? (
           <div className="posting-item">
             <h3>그 외 요건</h3>

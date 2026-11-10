@@ -100,6 +100,14 @@ input, textarea { width: 100%; padding: 10px 12px; font: inherit; color: inherit
 .posting-doc { display: grid; gap: 14px; padding: 24px; border: 1px solid var(--line); border-radius: 14px; }
 .posting-item { display: grid; gap: 7px; min-width: 0; }
 .posting-item h3 { font-size: 16px; font-weight: 800; }
+.posting-item.is-heading { margin-top: 10px; padding-top: 14px; border-top: 1px solid var(--line); }
+.posting-item.is-heading:first-child { margin-top: 0; padding-top: 0; border-top: 0; }
+.posting-item.is-item > p { position: relative; padding-left: 16px; }
+.posting-item.is-item > p::before { content: ""; position: absolute; left: 3px; top: .72em; width: 5px; height: 5px; border-radius: 50%; background: var(--mfg); }
+.posting-item.is-item + .posting-item.is-item { margin-top: -6px; }
+.anno.a-ok { border-left-color: var(--ok); } .anno.a-part { border-left-color: var(--part); } .anno.a-lack { border-left-color: var(--gap); }
+.anno-quote { flex: 1 1 200px; min-width: 0; }
+.anno-top .verdicts { margin-left: auto; }
 .anno { display: grid; gap: 3px; margin-left: 12px; padding: 9px 12px; border-left: 3px solid var(--line); border-radius: 0 8px 8px 0; background: var(--panel); font-size: 14px; }
 .anno-top { display: flex; flex-wrap: wrap; align-items: center; gap: 6px 10px; }
 .verdicts { display: inline-flex; flex-wrap: wrap; gap: 3px; margin-left: auto; }
