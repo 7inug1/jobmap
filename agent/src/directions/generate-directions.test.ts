@@ -44,6 +44,11 @@ describe('checkDirections', () => {
 		});
 	});
 
+	it('형식이 틀린 위치를 문제에 적는다', () => {
+		const message = issuesOf({ directions: [{ gapNumber: 1, options: [{ ...study, hours: '2시간' }] }] })[0];
+		expect(message).toMatch(/directions\.0\.options\.0\.hours/);
+	});
+
 	it('형식이 틀리면 문제로 돌려준다', () => {
 		expect(issuesOf({ directions: 'x' })[0]).toMatch(/형식/);
 		expect(issuesOf({ directions: [{ gapNumber: 1, options: [{ ...study, lane: 'x' }] }] })[0]).toMatch(/형식/);
@@ -82,6 +87,18 @@ describe('checkDirections', () => {
 	it('방법이 모두 깨졌으면 다시 쓰게 한다', () => {
 		const broken = { ...study, label: '실험 ��하기' };
 		expect(issuesOf({ directions: [{ gapNumber: 1, options: [broken] }, valid.directions[1]] }).join()).toMatch(/1번 요건.*깨진/);
+	});
+
+	it('추천 표시를 빼고 답해도 받고, 추천이 없으면 첫 방법을 추천한다', () => {
+		const { recommended: _omitted, ...withoutRecommended } = project;
+		const result = checkDirections({ directions: [{ gapNumber: 1, options: [{ ...study, recommended: undefined }, withoutRecommended] }, valid.directions[1]] }, gaps);
+		expect(result.ok ? result.directions[0]!.options.map((option) => option.recommended) : null).toEqual([true, false]);
+	});
+
+	it('설명을 빼고 답해도 받는다', () => {
+		const { description: _omitted, ...withoutDescription } = study;
+		const result = checkDirections({ directions: [{ gapNumber: 1, options: [withoutDescription] }, valid.directions[1]] }, gaps);
+		expect(result.ok ? result.directions[0]!.options[0]!.description : null).toBe('');
 	});
 
 	it('추천은 요건마다 하나만 남긴다', () => {

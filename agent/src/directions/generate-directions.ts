@@ -1,5 +1,5 @@
 import * as v from 'valibot';
-import { type AiBinding, BROKEN_CHAR, contentOf, isQuotaError, parseJson } from '../model/ai-answer.ts';
+import { type AiBinding, BROKEN_CHAR, contentOf, describeSchemaIssues, isQuotaError, parseJson } from '../model/ai-answer.ts';
 import { MODEL_ID } from '../model/default-model.ts';
 
 const MAX_ATTEMPTS = 3;
@@ -8,10 +8,11 @@ const MAX_TOKENS = 4096;
 
 const option = v.object({
 	label: v.string(),
-	description: v.string(),
+	// 모델이 추천이나 설명 항목을 빼고 답하는 일이 잦아(배포 환경에서 세 번 모두 이 이유로 실패) 선택 항목으로 받는다.
+	description: v.optional(v.string(), ''),
 	lane: v.picklist(['study', 'project']),
 	hours: v.number(),
-	recommended: v.boolean(),
+	recommended: v.optional(v.boolean(), false),
 });
 type Option = v.InferOutput<typeof option>;
 
@@ -54,7 +55,7 @@ export function checkDirections(
 	gaps: readonly Gap[],
 ): { ok: true; directions: Direction[] } | { ok: false; issues: string[] } {
 	const parsed = v.safeParse(answerSchema, data);
-	if (!parsed.success) return { ok: false, issues: ['답의 형식이 약속한 JSON과 다릅니다.'] };
+	if (!parsed.success) return { ok: false, issues: [describeSchemaIssues(parsed.issues)] };
 
 	const seen = new Set<number>();
 	const usable = parsed.output.directions.filter(({ gapNumber }) => {

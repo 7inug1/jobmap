@@ -1,6 +1,6 @@
 import * as v from 'valibot';
 import { restoreLooseQuote, restoreQuote } from '../evidence/check-evidence.ts';
-import { type AiBinding, BROKEN_CHAR, contentOf, isQuotaError, parseJson } from '../model/ai-answer.ts';
+import { type AiBinding, BROKEN_CHAR, contentOf, describeSchemaIssues, isQuotaError, parseJson } from '../model/ai-answer.ts';
 import { MODEL_ID } from '../model/default-model.ts';
 
 const MAX_ATTEMPTS = 3;
@@ -40,7 +40,7 @@ export function checkSentences(
 	resume: string,
 ): { ok: true; sentences: Sentence[] } | { ok: false; issues: string[] } {
 	const parsed = v.safeParse(answerSchema, data);
-	if (!parsed.success) return { ok: false, issues: ['답의 형식이 약속한 JSON과 다릅니다.'] };
+	if (!parsed.success) return { ok: false, issues: [describeSchemaIssues(parsed.issues)] };
 
 	const issues: string[] = [];
 	const sentences: Sentence[] = [];
