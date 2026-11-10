@@ -46,11 +46,11 @@ export function Failed({
       <div className="actions-row">
         {retryable ? (
           <button className="btn" type="button" disabled={sending} onClick={retry}>
-            {sending ? '시작하는 중' : '다시 시도하기'}
+            {sending ? '다시 시작하고 있어요' : '다시 시도할게요'}
           </button>
         ) : null}
         <button className="btn-line" type="button" onClick={onRestart}>
-          입력 고치기
+          입력을 고칠게요
         </button>
       </div>
     </>

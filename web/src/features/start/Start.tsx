@@ -145,13 +145,13 @@ export function Start({ initial, onStarted }: { initial: Inputs; onStarted: (run
           <div className="file-row">
             <label className="btn-line file-button">
               <input id="resume-file" type="file" accept="application/pdf,.pdf" disabled={readingPdf} onChange={attachPdf} />
-              {readingPdf ? '읽는 중' : resume.trim() !== '' && !pasteResume ? '다른 PDF 첨부' : 'PDF 첨부'}
+              {readingPdf ? 'PDF를 읽고 있어요' : resume.trim() !== '' && !pasteResume ? '다른 PDF를 첨부할게요' : 'PDF를 첨부할게요'}
             </label>
             {pdfName ? <span className="small">{pdfName}</span> : null}
             {!pdfName && resume.trim() !== '' && !pasteResume ? <span className="small">이전에 넣은 이력서를 쓸게요.</span> : null}
             {!pasteResume ? (
               <button className="link-button" type="button" onClick={() => setPasteResume(true)}>
-                직접 붙여 넣기
+                이력서를 직접 붙여 넣을게요
               </button>
             ) : null}
           </div>
@@ -219,7 +219,7 @@ export function Start({ initial, onStarted }: { initial: Inputs; onStarted: (run
             />
           ) : (
             <button className="link-button start-align" type="button" onClick={() => setPastePosting(true)}>
-              링크 없이 본문 붙여 넣기
+              링크 없이 공고 본문을 붙여 넣을게요
             </button>
           )}
           {postingTextError ? (
@@ -235,7 +235,7 @@ export function Start({ initial, onStarted }: { initial: Inputs; onStarted: (run
         ) : null}
         <div>
           <button className="btn" type="submit" disabled={!ready}>
-            {status === 'reading-posting' ? '공고 읽는 중' : status === 'starting' ? '시작하는 중' : '내 이력과 비교해 보기'}
+            {status === 'reading-posting' ? '공고를 읽고 있어요' : status === 'starting' ? '비교를 시작하고 있어요' : '내 이력과 비교해 볼게요'}
           </button>
         </div>
       </form>

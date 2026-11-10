@@ -65,7 +65,7 @@ export function DirectionPicker({
                   </span>
                   <span className="small">{option.description}</span>
                   <span className="small">
-                    {option.lane === 'study' ? '공부' : '프로젝트'}, 약 {option.hours}시간
+                    약 {option.hours}시간 걸리는 {option.lane === 'study' ? '공부' : '프로젝트'}예요.
                   </span>
                 </button>
               )
@@ -81,14 +81,14 @@ export function DirectionPicker({
       <div className="actions-row">
         {picks.length === 0 ? (
           <button className="btn-line" type="button" onClick={() => onPicks(recommendedPicks(directions))}>
-            추천대로 고르기
+            추천대로 고를게요
           </button>
         ) : null}
         <button className="btn" type="button" disabled={picks.length === 0} onClick={onConfirm}>
           이대로 할게요
         </button>
         <button className="btn-line" type="button" onClick={onBack}>
-          비교 결과로 돌아가기
+          비교 결과로 돌아갈게요
         </button>
       </div>
     </>

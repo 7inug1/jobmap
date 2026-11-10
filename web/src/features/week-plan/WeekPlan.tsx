@@ -31,14 +31,13 @@ export function WeekPlan({
     <div className="task-body">
       <b>{task.label}</b>
       <span className="small">{task.description}</span>
-      <span className="small">
-        {detail} 채우는 요건: {task.requirement}
-      </span>
+      <span className="small">{detail}</span>
+      <span className="small">이 일은 다음 요건을 채워요. {task.requirement}</span>
     </div>
   )
 
   const weekRow = (item: PlanItem) => {
-    const progress = item.hours > item.weekHours! ? ` (전체 ${item.hours}시간 중 ${item.doneHours}시간 함)` : ''
+    const progress = item.hours > item.weekHours! ? ` 전체 ${item.hours}시간 중 ${item.doneHours}시간을 했어요.` : ''
     return (
       <li className="task" key={item.key}>
         <input
@@ -47,7 +46,7 @@ export function WeekPlan({
           checked={false}
           onChange={() => onCompletions([...completions, { key: item.key, hours: item.weekHours! }])}
         />
-        {body(item, `${laneName(item)}, 이번 주 ${item.weekHours}시간${progress}.`)}
+        {body(item, `이번 주에 ${item.weekHours}시간 할 ${laneName(item)}예요.${progress}`)}
       </li>
     )
   }
@@ -55,7 +54,7 @@ export function WeekPlan({
   const laterRow = (item: PlanItem) => (
     <li className="task" key={item.key}>
       <span aria-hidden="true" />
-      {body(item, `${laneName(item)}, 남은 ${item.leftHours}시간.`)}
+      {body(item, `남은 시간은 ${item.leftHours}시간이에요.`)}
     </li>
   )
 
@@ -67,7 +66,7 @@ export function WeekPlan({
         checked
         onChange={() => onCompletions(undoLastCompletion(completions, task.key))}
       />
-      {body(task, `${laneName(task)}, 약 ${task.hours}시간.`)}
+      {body(task, `약 ${task.hours}시간짜리 ${laneName(task)}였어요.`)}
     </li>
   )
 
@@ -104,10 +103,10 @@ export function WeekPlan({
       ) : null}
       <div className="actions-row">
         <button className="btn-line" type="button" onClick={onBack}>
-          방향 다시 고르기
+          방향을 다시 고를게요
         </button>
         <button className="btn-line" type="button" onClick={onRestart}>
-          다른 공고로 비교하기
+          다른 공고로 비교할게요
         </button>
       </div>
     </>

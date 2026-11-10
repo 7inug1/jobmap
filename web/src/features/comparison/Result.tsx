@@ -83,17 +83,17 @@ export function Result({
         </p>
       ) : null}
       {directionsWillReset(savedDirections, gaps) ? (
-        <p className="small">판단을 바꿔서, 다음으로를 누르면 고른 방향이 사라지고 채울 방법을 새로 제안받아요.</p>
+        <p className="small">판단을 바꿔서, 채울 방법을 다시 보면 고른 방향이 사라지고 새로 제안받아요.</p>
       ) : null}
       {gaps.length === 0 ? <p className="lead-line">부족한 요건이 없어요. 바로 지원해 봐도 좋아요.</p> : null}
       <div className="actions-row sticky-action">
         {gaps.length > 0 ? (
           <button className="btn" type="button" disabled={opening || failure?.canRetry === false} onClick={next}>
-            {opening ? '채울 방법을 정리하는 중' : '다음으로'}
+            {opening ? '채울 방법을 정리하고 있어요' : '부족한 부분을 채울 방법을 볼게요'}
           </button>
         ) : null}
         <button className="btn-line" type="button" onClick={onRestart}>
-          다른 공고로 비교하기
+          다른 공고로 비교할게요
         </button>
       </div>
     </>

@@ -34,10 +34,10 @@ export function PostingFailedModal({
       <p className="small">링크로 읽을 수 있는 사이트: {SUPPORTED.map(({ name }) => name).join(', ')}</p>
       <div className="actions-row">
         <button className="btn" type="button" onClick={onPaste}>
-          본문 붙여 넣기
+          공고 본문을 붙여 넣을게요
         </button>
         <button className="btn-line" type="button" onClick={onOtherLink}>
-          다른 링크 넣기
+          다른 링크를 넣을게요
         </button>
       </div>
     </dialog>

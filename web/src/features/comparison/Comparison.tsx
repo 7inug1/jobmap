@@ -53,17 +53,17 @@ function Working({ step, onRestart }: { step: string | null; onRestart: () => vo
       <div className="work-steps" role="status">
         <div className={`work-step ${step ? 'done' : 'on'}`}>
           <span className="icon">{step ? '✓' : <span className="dot" />}</span>
-          <b>요건별로 이력서 살펴보기</b>
+          <b>요건별로 이력서를 살펴보고 있어요.</b>
         </div>
         <div className={`work-step ${step ? 'on' : ''}`}>
           <span className="icon">{step ? <span className="dot" /> : null}</span>
-          <b>근거 문장이 원문에 있는지 확인하기</b>
+          <b>근거 문장이 원문에 있는지 확인하고 있어요.</b>
         </div>
       </div>
       {slow ? <p className="lead-line">평소보다 오래 걸리고 있어요. 조금 더 기다리거나 처음으로 돌아가 다시 시작해 주세요.</p> : null}
       <div className="actions-row">
         <button className="btn-line" type="button" onClick={onRestart}>
-          처음으로 돌아가기
+          처음 화면으로 돌아갈게요
         </button>
       </div>
     </>

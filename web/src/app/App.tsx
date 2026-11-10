@@ -51,7 +51,7 @@ export default function App() {
         <span>© 2026 잡맵</span>
         {run ? (
           <button className="link-button" type="button" onClick={() => restart(run)}>
-            이 준비 지우고 처음부터
+            이 준비를 지우고 처음부터 다시 할게요
           </button>
         ) : null}
       </footer>
