@@ -2,7 +2,7 @@ export type FailureReason = 'quota' | 'evidence' | 'connection'
 
 const MAX_RETRIES = 2
 
-const QUOTA_DETAIL = 'AI 사용량은 매일 오전 9시에 다시 채워져요. 그때 다시 시도해 주세요.'
+const QUOTA_DETAIL = 'AI 사용량은 하루 단위로 다시 채워져요. 내일 다시 시도해 주세요.'
 
 export const FAILURE_COPY: Record<FailureReason, { title: string; detail: string }> = {
   quota: { title: '오늘 쓸 수 있는 AI 사용량을 다 썼어요', detail: QUOTA_DETAIL },

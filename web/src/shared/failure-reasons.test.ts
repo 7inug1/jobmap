@@ -29,8 +29,9 @@ describe('canRetry', () => {
 })
 
 describe('FAILURE_COPY', () => {
-  it('한도 소진은 오전 9시를 안내한다', () => {
-    assert.match(FAILURE_COPY.quota.detail, /오전 9시/)
+  it('한도 소진은 시각을 약속하지 않고 내일 다시 하도록 안내한다', () => {
+    assert.match(FAILURE_COPY.quota.detail, /내일/)
+    assert.doesNotMatch(FAILURE_COPY.quota.detail, /오전 9시/)
   })
 })
 
@@ -38,7 +39,7 @@ describe('directionsFailure', () => {
   it('한도 소진은 다시 누를 수 없다', () => {
     const failure = directionsFailure(new Error('quota'), 1)
     assert.equal(failure.canRetry, false)
-    assert.match(failure.message, /오전 9시/)
+    assert.match(failure.message, /내일/)
   })
 
   it('두 번째 실패까지는 다시 누를 수 있다', () => {

@@ -2,12 +2,11 @@ export type PostingSource = { kind: 'supported' | 'unsupported'; name: string } 
 
 type Platform = { host: string; name: string }
 
-// docs/posting-sources.md의 측정 결과. 다시 재면 함께 고친다.
+// docs/posting-sources.md의 배포 환경 측정 결과. 다시 재면 함께 고친다.
 export const SUPPORTED: readonly Platform[] = [
   { host: 'careers.daangn.com', name: '당근' },
   { host: 'wanted.co.kr', name: '원티드' },
   { host: 'jumpit.saramin.co.kr', name: '점핏' },
-  { host: 'coupang.jobs', name: '쿠팡' },
   { host: 'greenhouse.io', name: 'Greenhouse' },
   { host: 'lever.co', name: 'Lever' },
   { host: 'ashbyhq.com', name: 'Ashby' },
@@ -21,6 +20,7 @@ export const UNSUPPORTED: readonly Platform[] = [
   { host: 'rocketpunch.com', name: '로켓펀치' },
   { host: 'toss.im', name: '토스' },
   { host: 'careers.kakao.com', name: '카카오' },
+  { host: 'coupang.jobs', name: '쿠팡' },
   { host: 'linkedin.com', name: 'LinkedIn' },
 ]
 

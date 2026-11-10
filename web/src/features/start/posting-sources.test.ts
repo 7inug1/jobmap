@@ -32,3 +32,9 @@ describe('classifyPostingUrl', () => {
     assert.deepEqual(classifyPostingUrl(''), { kind: 'invalid' })
   })
 })
+
+describe('배포 환경 측정 결과', () => {
+  it('쿠팡은 Cloudflare에서 열리지 않아 붙여넣기로 안내한다', () => {
+    assert.deepEqual(classifyPostingUrl('https://www.coupang.jobs/kr/jobs/1'), { kind: 'unsupported', name: '쿠팡' })
+  })
+})
