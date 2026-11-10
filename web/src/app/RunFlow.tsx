@@ -5,7 +5,12 @@ import { DirectionPicker } from '../features/directions/DirectionPicker.tsx'
 import { fetchDirections } from '../features/directions/fetch-directions.ts'
 import { DEFAULT_WEEKLY_HOURS } from '../features/week-plan/week-plan.ts'
 import { WeekPlan } from '../features/week-plan/WeekPlan.tsx'
-import type { Gap, Run } from '../shared/types.ts'
+import type { Completion, Gap, Run } from '../shared/types.ts'
+
+/** 예전 기록의 끝낸 일은 전체 시간을 해낸 것으로 본다. 시간은 계산에서 일의 시간으로 줄어든다. */
+function completionsOf(run: Run): Completion[] {
+  return run.completions ?? (run.doneTasks ?? []).map((key) => ({ key, hours: Number.MAX_SAFE_INTEGER }))
+}
 
 export function RunFlow({
   run,
@@ -33,9 +38,9 @@ export function RunFlow({
       <WeekPlan
         directions={run.directions.directions}
         picks={run.directions.picks}
-        doneKeys={run.doneTasks ?? []}
+        completions={completionsOf(run)}
         weeklyHours={run.weeklyHours ?? DEFAULT_WEEKLY_HOURS}
-        onDone={(doneTasks) => onChange({ ...run, doneTasks })}
+        onCompletions={(completions) => onChange({ ...run, completions, doneTasks: undefined })}
         onWeeklyHours={(weeklyHours) => onChange({ ...run, weeklyHours })}
         onBack={() => onChange({ ...run, stage: 'directions' })}
         onRestart={onRestart}

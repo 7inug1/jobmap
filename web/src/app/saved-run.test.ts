@@ -45,6 +45,15 @@ describe('parseSavedRun', () => {
     assert.equal(parse({ ...run, directions: { gaps: [gap], directions: [direction] } }), null)
   })
 
+  it('해낸 시간 기록을 복원한다', () => {
+    const withRecords = { ...run, completions: [{ key: '1:0', hours: 3 }] }
+    assert.deepEqual(parse(withRecords), withRecords)
+  })
+
+  it('해낸 시간 기록 형식이 틀리면 null이다', () => {
+    assert.equal(parse({ ...run, completions: [{ key: '1:0' }] }), null)
+  })
+
   it('시간이나 끝낸 일 형식이 틀리면 null이다', () => {
     assert.equal(parse({ ...run, weeklyHours: 'three' }), null)
     assert.equal(parse({ ...run, doneTasks: [1] }), null)

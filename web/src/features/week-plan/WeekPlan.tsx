@@ -1,50 +1,73 @@
-import type { Direction } from '../../shared/types.ts'
-import { buildWeekPlan, type WeekTask } from './week-plan.ts'
+import type { Completion, Direction } from '../../shared/types.ts'
+import { buildWeekPlan, undoLastCompletion, type PlanItem, type WeekTask } from './week-plan.ts'
 
 const WEEKLY_HOUR_CHOICES = [1, 2, 3, 5, 8, 10, 15, 20]
+
+const laneName = (task: WeekTask) => (task.lane === 'study' ? '공부' : '프로젝트')
 
 export function WeekPlan({
   directions,
   picks,
-  doneKeys,
+  completions,
   weeklyHours,
-  onDone,
+  onCompletions,
   onWeeklyHours,
   onBack,
   onRestart,
 }: {
   directions: Direction[]
   picks: string[]
-  doneKeys: string[]
+  completions: Completion[]
   weeklyHours: number
-  onDone: (doneKeys: string[]) => void
+  onCompletions: (completions: Completion[]) => void
   onWeeklyHours: (hours: number) => void
   onBack: () => void
   onRestart: () => void
 }) {
-  const { thisWeek, later, done, hoursThisWeek, weeksLeft } = buildWeekPlan(directions, picks, doneKeys, weeklyHours)
-  const toggle = (key: string) => onDone(doneKeys.includes(key) ? doneKeys.filter((item) => item !== key) : [...doneKeys, key])
+  const { thisWeek, later, done, hoursThisWeek, weeksLeft } = buildWeekPlan(directions, picks, completions, weeklyHours)
   const finished = thisWeek.length === 0
 
-  const row = (task: WeekTask, checkable: boolean) => (
-    <li className={`task${doneKeys.includes(task.key) ? ' done' : ''}`} key={task.key}>
-      {checkable ? (
+  const body = (task: WeekTask, detail: string) => (
+    <div className="task-body">
+      <b>{task.label}</b>
+      <span className="small">{task.description}</span>
+      <span className="small">
+        {detail} 채우는 요건: {task.requirement}
+      </span>
+    </div>
+  )
+
+  const weekRow = (item: PlanItem) => {
+    const progress = item.hours > item.weekHours! ? ` (전체 ${item.hours}시간 중 ${item.doneHours}시간 함)` : ''
+    return (
+      <li className="task" key={item.key}>
         <input
           type="checkbox"
-          aria-label={`${task.label} 완료`}
-          checked={doneKeys.includes(task.key)}
-          onChange={() => toggle(task.key)}
+          aria-label={`${item.label} 이번 주 분량 완료`}
+          checked={false}
+          onChange={() => onCompletions([...completions, { key: item.key, hours: item.weekHours! }])}
         />
-      ) : (
-        <span aria-hidden="true" />
-      )}
-      <div className="task-body">
-        <b>{task.label}</b>
-        <span className="small">{task.description}</span>
-        <span className="small">
-          {task.lane === 'study' ? '공부' : '프로젝트'}, 약 {task.hours}시간. 채우는 요건: {task.requirement}
-        </span>
-      </div>
+        {body(item, `${laneName(item)}, 이번 주 ${item.weekHours}시간${progress}.`)}
+      </li>
+    )
+  }
+
+  const laterRow = (item: PlanItem) => (
+    <li className="task" key={item.key}>
+      <span aria-hidden="true" />
+      {body(item, `${laneName(item)}, 남은 ${item.leftHours}시간.`)}
+    </li>
+  )
+
+  const doneRow = (task: WeekTask) => (
+    <li className="task done" key={task.key}>
+      <input
+        type="checkbox"
+        aria-label={`${task.label} 완료 취소`}
+        checked
+        onChange={() => onCompletions(undoLastCompletion(completions, task.key))}
+      />
+      {body(task, `${laneName(task)}, 약 ${task.hours}시간.`)}
     </li>
   )
 
@@ -66,17 +89,17 @@ export function WeekPlan({
           ))}
         </select>
       </label>
-      {finished ? null : <ul className="task-list">{thisWeek.map((task) => row(task, true))}</ul>}
+      {finished ? null : <ul className="task-list">{thisWeek.map(weekRow)}</ul>}
       {later.length > 0 ? (
         <section className="task-section">
           <h2>다음에 할 일</h2>
-          <ul className="task-list">{later.map((task) => row(task, false))}</ul>
+          <ul className="task-list">{later.map(laterRow)}</ul>
         </section>
       ) : null}
       {done.length > 0 ? (
         <section className="task-section">
           <h2>끝낸 일</h2>
-          <ul className="task-list">{done.map((task) => row(task, true))}</ul>
+          <ul className="task-list">{done.map(doneRow)}</ul>
         </section>
       ) : null}
       <div className="actions-row">

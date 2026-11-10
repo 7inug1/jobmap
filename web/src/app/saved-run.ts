@@ -44,6 +44,7 @@ function isRun(value: unknown): value is Run {
     isOptional(value.directions, isDirectionsRun) &&
     isOptional(value.weeklyHours, (hours) => typeof hours === 'number') &&
     isOptional(value.doneTasks, (tasks) => isArrayOf(tasks, isString)) &&
+    isOptional(value.completions, (records) => isArrayOf(records, (record) => isObject(record) && isString(record.key) && typeof record.hours === 'number')) &&
     isOptional(value.retries, (retries) => typeof retries === 'number')
   )
 }
