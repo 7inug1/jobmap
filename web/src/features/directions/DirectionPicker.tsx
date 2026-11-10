@@ -5,6 +5,9 @@ import { FIRST_BATCH, recommendedPicks, summarizePicks } from './directions.ts'
 export function DirectionPicker({
   directions,
   remaining,
+  skippedNames,
+  onSkip,
+  onRestore,
   onLoadMore,
   moreFailure,
   picks,
@@ -15,6 +18,9 @@ export function DirectionPicker({
 }: {
   directions: Direction[]
   remaining: Gap[]
+  skippedNames: string[]
+  onSkip: (requirement: string) => void
+  onRestore: (requirement: string) => void
   onLoadMore: () => void
   moreFailure: { message: string; canRetry: boolean } | null
   picks: string[]
@@ -77,6 +83,9 @@ export function DirectionPicker({
               )
             })}
           </div>
+          <button className="link-button start-align" type="button" onClick={() => onSkip(requirement)}>
+            나에게 해당하지 않는 요건이에요
+          </button>
         </section>
       ))}
       {remaining.length > 0 ? (
@@ -88,6 +97,9 @@ export function DirectionPicker({
               <li key={requirement}>
                 <span className={`pill ${verdict === 'unmet' ? 'lack' : 'part'}`}>{verdict === 'unmet' ? '불충족' : '일부 충족'}</span>
                 <span>{requirement}</span>
+                <button className="link-button" type="button" onClick={() => onSkip(requirement)}>
+                  나에게 해당하지 않아요
+                </button>
               </li>
             ))}
           </ul>
@@ -101,6 +113,21 @@ export function DirectionPicker({
               다음 {Math.min(FIRST_BATCH, remaining.length)}개 요건의 방법도 볼게요
             </button>
           )}
+        </section>
+      ) : null}
+      {skippedNames.length > 0 ? (
+        <section className="remaining" aria-labelledby="skipped-title">
+          <h2 id="skipped-title">나에게 해당하지 않아 뺀 요건이 {skippedNames.length}개 있어요</h2>
+          <ul>
+            {skippedNames.map((name) => (
+              <li key={name}>
+                <span>{name}</span>
+                <button className="link-button" type="button" onClick={() => onRestore(name)}>
+                  다시 넣을게요
+                </button>
+              </li>
+            ))}
+          </ul>
         </section>
       ) : null}
       <p className="lead-line">

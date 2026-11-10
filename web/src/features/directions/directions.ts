@@ -34,3 +34,19 @@ export function appendDirections(existing: readonly Direction[], incoming: reado
   return [...existing, ...incoming.map((direction, index) => ({ ...direction, gapNumber: existing.length + index + 1 }))]
 }
 
+/** 아직 방법을 보지 않았고 해당 없음으로 빼지도 않은 요건. 요건 이름으로 찾아, 중간에 뺀 요건이 있어도 순서가 어긋나지 않는다. */
+export function remainingGaps(gaps: readonly Gap[], directions: readonly Direction[], skipped: readonly string[]): Gap[] {
+  return gaps.filter(({ requirement }) => !skipped.includes(requirement) && !directions.some((direction) => direction.requirement === requirement))
+}
+
+/** 해당 없음으로 뺀 요건의 방법은 고르기와 이번 주 할 일에서 보이지 않게 한다. */
+export function activeDirections(directions: readonly Direction[], skipped: readonly string[]): Direction[] {
+  return directions.filter(({ requirement }) => !skipped.includes(requirement))
+}
+
+/** 요건을 해당 없음으로 뺄 때, 그 요건에서 이미 고른 방법을 고른 목록에서 뺀다. */
+export function picksWithout(directions: readonly Direction[], picks: readonly string[], requirement: string): string[] {
+  const gapNumber = directions.find((direction) => direction.requirement === requirement)?.gapNumber
+  return gapNumber === undefined ? [...picks] : picks.filter((key) => !key.startsWith(`${gapNumber}:`))
+}
+

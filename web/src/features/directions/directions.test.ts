@@ -1,7 +1,7 @@
 import assert from 'node:assert/strict'
 import { describe, it } from 'node:test'
 import type { Direction } from '../../shared/types.ts'
-import { appendDirections, FIRST_BATCH, nextBatch, rankGaps, recommendedPicks, summarizePicks } from './directions.ts'
+import { activeDirections, appendDirections, FIRST_BATCH, nextBatch, picksWithout, rankGaps, recommendedPicks, remainingGaps, summarizePicks } from './directions.ts'
 
 const directions: Direction[] = [
   {
@@ -86,6 +86,38 @@ describe('appendDirections', () => {
 
   it('기존 목록이 비어 있으면 그대로 돌려준다', () => {
     assert.deepEqual(appendDirections([], [made(1, 'A')]).map(({ gapNumber }) => gapNumber), [1])
+  })
+})
+
+describe('해당 없음으로 뺀 요건', () => {
+  const made = (gapNumber: number, requirement: string): Direction => ({
+    gapNumber,
+    requirement,
+    verdict: 'unmet',
+    options: [{ label: requirement, description: '', lane: 'study', hours: 1, recommended: true }],
+  })
+  const all = ['A', 'B', 'C', 'D'].map((requirement) => gap(requirement, 'unmet'))
+
+  it('아직 방법을 보지 않았고 빼지도 않은 요건만 남긴다', () => {
+    assert.deepEqual(remainingGaps(all, [made(1, 'A')], ['C']).map(({ requirement }) => requirement), ['B', 'D'])
+  })
+
+  it('뺀 요건이 없으면 방법을 보지 않은 요건이 모두 남는다', () => {
+    assert.deepEqual(remainingGaps(all, [made(1, 'A'), made(2, 'B')], []).map(({ requirement }) => requirement), ['C', 'D'])
+  })
+
+  it('뺀 요건의 방법은 화면에서 숨긴다', () => {
+    const directions = [made(1, 'A'), made(2, 'B')]
+    assert.deepEqual(activeDirections(directions, ['B']).map(({ requirement }) => requirement), ['A'])
+  })
+
+  it('요건을 빼면 그 요건에서 고른 방법만 고른 목록에서 뺀다', () => {
+    const directions = [made(1, 'A'), made(2, 'B')]
+    assert.deepEqual(picksWithout(directions, ['1:0', '2:0', '2:1'], 'B'), ['1:0'])
+  })
+
+  it('방법을 받지 않은 요건을 빼도 고른 목록은 그대로다', () => {
+    assert.deepEqual(picksWithout([made(1, 'A')], ['1:0'], 'Z'), ['1:0'])
   })
 })
 

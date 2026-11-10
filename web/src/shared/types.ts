@@ -34,6 +34,8 @@ export type Run = Inputs & {
   /** 예전 저장 형식의 화면 단계. 이제는 주소가 대신한다. */
   stage?: 'directions' | 'plan'
   directions?: DirectionsRun
+  /** 나에게 해당하지 않아 뺀 요건의 이름. 방법 제안과 이번 주 할 일에서 빠진다. */
+  skippedGaps?: string[]
   weeklyHours?: number
   /** 예전 저장 형식. 일 단위로 끝냈는지만 기록했다. */
   doneTasks?: string[]

@@ -7,7 +7,7 @@ import { Comparison } from '../features/comparison/Comparison.tsx'
 import { readComparison, sameGaps, type ComparisonView } from '../features/comparison/comparison.ts'
 import { DirectionPicker } from '../features/directions/DirectionPicker.tsx'
 import { DirectionsLoading } from '../features/directions/DirectionsLoading.tsx'
-import { appendDirections, nextBatch, rankGaps } from '../features/directions/directions.ts'
+import { activeDirections, appendDirections, nextBatch, picksWithout, rankGaps, remainingGaps } from '../features/directions/directions.ts'
 import { fetchDirections } from '../features/directions/fetch-directions.ts'
 import { DEFAULT_WEEKLY_HOURS } from '../features/week-plan/week-plan.ts'
 import { WeekPlan } from '../features/week-plan/WeekPlan.tsx'
@@ -87,13 +87,30 @@ export function RunFlow({ run, step }: { run: Run; step: Step }) {
     navigate(runPath(run.id, 'directions'))
   }
 
+  const skipped = run.skippedGaps ?? []
+  const remaining = run.directions ? remainingGaps(run.directions.gaps, run.directions.directions, skipped) : []
+
+  function skipGap(requirement: string) {
+    if (!run.directions) return
+    const saved = run.directions
+    onChange({
+      ...run,
+      skippedGaps: [...skipped, requirement],
+      directions: { ...saved, picks: picksWithout(saved.directions, saved.picks, requirement) },
+    })
+  }
+
+  function restoreGap(requirement: string) {
+    onChange({ ...run, skippedGaps: skipped.filter((name) => name !== requirement) })
+  }
+
   async function loadMoreDirections() {
     if (!run.directions) return
     const saved = run.directions
     setLoadingMore(true)
     setMoreFailure(null)
     try {
-      const more = await fetchDirections(nextBatch(saved.gaps, saved.directions.length), run.resume)
+      const more = await fetchDirections(nextBatch(remaining, 0), run.resume)
       onChange({ ...run, directions: { ...saved, directions: appendDirections(saved.directions, more) } })
     } catch (error) {
       setMoreFailures(moreFailures + 1)
@@ -106,9 +123,9 @@ export function RunFlow({ run, step }: { run: Run; step: Step }) {
   if (step === 'plan' && run.directions) {
     return (
       <WeekPlan
-        directions={run.directions.directions}
+        directions={activeDirections(run.directions.directions, skipped)}
         picks={run.directions.picks}
-        remainingCount={run.directions.gaps.length - run.directions.directions.length}
+        remainingCount={remaining.length}
         completions={completionsOf(run)}
         weeklyHours={run.weeklyHours ?? DEFAULT_WEEKLY_HOURS}
         onCompletions={(completions) => onChange({ ...run, completions, doneTasks: undefined })}
@@ -121,12 +138,15 @@ export function RunFlow({ run, step }: { run: Run; step: Step }) {
   if (step === 'directions' && run.directions) {
     const saved = run.directions
     if (loadingMore) {
-      return <DirectionsLoading batch={nextBatch(saved.gaps, saved.directions.length).length} total={saved.gaps.length - saved.directions.length} />
+      return <DirectionsLoading batch={nextBatch(remaining, 0).length} total={remaining.length} />
     }
     return (
       <DirectionPicker
-        directions={saved.directions}
-        remaining={saved.gaps.slice(saved.directions.length)}
+        directions={activeDirections(saved.directions, skipped)}
+        remaining={remaining}
+        skippedNames={skipped}
+        onSkip={skipGap}
+        onRestore={restoreGap}
         onLoadMore={loadMoreDirections}
         moreFailure={moreFailure}
         picks={saved.picks}

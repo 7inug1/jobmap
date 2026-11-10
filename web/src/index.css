@@ -115,7 +115,7 @@ input, textarea { width: 100%; padding: 10px 12px; font: inherit; color: inherit
 .verdict.v-lack[aria-pressed='true'] { background: var(--gap-soft); border-color: var(--gap); color: var(--gap); font-weight: 700; }
 
 .pill.rec { background: var(--hover); color: var(--fg); }
-.basket { display: grid; grid-template-columns: repeat(auto-fit, minmax(min(100%, 16rem), 1fr)); gap: 12px; padding: 14px 16px; border-radius: 12px; background: var(--panel); }
+.basket { position: sticky; top: var(--top-h); z-index: 5; display: grid; grid-template-columns: repeat(auto-fit, minmax(min(100%, 16rem), 1fr)); gap: 12px; padding: 14px 16px; border: 1px solid var(--line); border-radius: 12px; background: var(--panel); box-shadow: 0 6px 12px -8px hsl(240 10% 10% / .25); }
 .basket-col { display: flex; flex-wrap: wrap; align-items: center; gap: 6px; align-content: start; }
 .tag { flex-basis: 100%; font-size: 13px; font-weight: 700; }
 .basket-item { padding: 2px 10px; border: 1px solid var(--line); border-radius: 99px; background: var(--bg); font-size: 13px; }
@@ -126,7 +126,8 @@ input, textarea { width: 100%; padding: 10px 12px; font: inherit; color: inherit
 .dir-option:hover { border-color: var(--fg); }
 .dir-option[aria-pressed='true'] { border-color: var(--fg); background: var(--panel); }
 .dir-title { display: flex; flex-wrap: wrap; align-items: center; gap: 6px; }
-.tick { display: grid; place-items: center; width: 18px; height: 18px; border: 1px solid var(--line); border-radius: 5px; font-size: 12px; }
+.tick { flex: none; display: grid; place-items: center; width: 24px; height: 24px; border: 2px solid var(--line); border-radius: 7px; font-size: 17px; font-weight: 800; line-height: 1; }
+.dir-option[aria-pressed='true'] .tick { border-color: var(--fg); background: var(--fg); color: var(--bg); }
 
 .hours-field { display: flex; flex-wrap: wrap; align-items: center; gap: 10px; font-weight: 700; }
 .hours-field select { min-height: 36px; padding: 2px 8px; font: inherit; font-weight: 500; color: inherit; background: var(--bg); border: 1px solid var(--line); border-radius: 8px; }
@@ -211,4 +212,7 @@ input, textarea { width: 100%; padding: 10px 12px; font: inherit; color: inherit
 .history-confirm { display: inline-flex; gap: 12px; }
 .empty { display: grid; gap: 12px; justify-items: start; padding: 24px; border: 1px dashed var(--line); border-radius: 14px; }
 a.btn, a.btn-line { text-decoration: none; }
-
+:root { --top-h: 58px; }
+.task input[type="checkbox"] { width: 22px; height: 22px; margin-top: 2px; accent-color: var(--fg); cursor: pointer; }
+.remaining li .link-button { margin-left: auto; flex: none; }
+@media (max-width: 520px) { .basket { grid-template-columns: 1fr 1fr; gap: 8px; padding: 10px 12px; } .basket-col { gap: 4px; } }
