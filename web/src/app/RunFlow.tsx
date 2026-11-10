@@ -15,7 +15,7 @@ import { fetchSentences } from '../features/resume/fetch-sentences.ts'
 import { ResumeTab } from '../features/resume/ResumeTab.tsx'
 import { SentenceFlow } from '../features/resume/SentenceFlow.tsx'
 import { SentencesLoading } from '../features/resume/SentencesLoading.tsx'
-import { missingPicks, projectPicks, reconcileItems } from '../features/resume/sentences.ts'
+import { itemKeys, missingPicks, projectPicks, reconcileItems } from '../features/resume/sentences.ts'
 import { directionsFailure, sentencesFailure } from '../shared/failure-reasons.ts'
 import type { Completion, Gap, Run } from '../shared/types.ts'
 import { runPath, type Step } from './runs.ts'
@@ -127,7 +127,7 @@ export function RunFlow({ run, step }: { run: Run; step: Step }) {
     const missing = missingPicks(existing, picks)
     if (missing.length === 0) {
       const confirmed = run.sentences?.confirmed ?? false
-      onChange({ ...run, sentences: { items: reconcileItems(existing, picks, new Map()), confirmed } })
+      onChange({ ...run, sentences: { items: reconcileItems(existing, picks, []), confirmed } })
       navigate(runPath(run.id, confirmed ? 'plan' : 'resume'))
       return
     }
@@ -147,10 +147,12 @@ export function RunFlow({ run, step }: { run: Run; step: Step }) {
 
   function removeSentence(key: string) {
     if (!run.sentences || !run.directions) return
+    const removed = run.sentences.items.find((item) => item.key === key)
+    const removedKeys = removed ? itemKeys(removed) : [key]
     onChange({
       ...run,
       sentences: { ...run.sentences, items: run.sentences.items.filter((item) => item.key !== key) },
-      directions: { ...run.directions, picks: run.directions.picks.filter((pick) => pick !== key) },
+      directions: { ...run.directions, picks: run.directions.picks.filter((pick) => !removedKeys.includes(pick)) },
     })
   }
 

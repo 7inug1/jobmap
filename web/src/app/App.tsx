@@ -1,4 +1,4 @@
-import { BrowserRouter, Link, Navigate, NavLink, Route, Routes, useLocation, useNavigate } from 'react-router'
+import { BrowserRouter, Link, Navigate, NavLink, Route, Routes, useLocation, useMatch, useNavigate } from 'react-router'
 import { Start } from '../features/start/Start.tsx'
 import type { Inputs } from '../shared/types.ts'
 import { History } from './History.tsx'
@@ -27,6 +27,8 @@ function StartPage() {
 }
 
 function Layout() {
+  // 이력서 문장 화면은 이력서와 문장 카드를 나란히 놓으므로 더 넓게 쓴다.
+  const wide = useMatch('/runs/:id/resume') !== null
   return (
     <>
       <header className="top">
@@ -37,7 +39,7 @@ function Layout() {
           <NavLink to="/history">내 기록</NavLink>
         </nav>
       </header>
-      <main className="page">
+      <main className={`page${wide ? ' wide' : ''}`}>
         <Routes>
           <Route path="/" element={<StartPage />} />
           <Route path="/runs/:id" element={<RunPage step={undefined} />} />

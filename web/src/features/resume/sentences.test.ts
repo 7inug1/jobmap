@@ -5,6 +5,7 @@ import {
   addedAtTarget,
   blanksOf,
   completedSentence,
+  itemKeys,
   missingPicks,
   placeSentences,
   projectPicks,
@@ -12,6 +13,7 @@ import {
   reconcileItems,
   resumePages,
   sentenceParts,
+  type GeneratedProject,
 } from './sentences.ts'
 
 const item = (key: string, extra: Partial<SentenceItem> = {}): SentenceItem => ({
@@ -94,27 +96,47 @@ describe('projectPicks', () => {
 describe('reconcileItems', () => {
   const picks = [
     { key: '1:1', requirement: 'A', label: 'A 1', description: '설명', hours: 3 },
-    { key: '2:0', requirement: 'B', label: 'B 0', description: '설명', hours: 3 },
+    { key: '2:0', requirement: 'B', label: 'B 0', description: '설명', hours: 5 },
+    { key: '3:1', requirement: 'C', label: 'C 1', description: '설명', hours: 4 },
   ]
-  const generated = { sentence: '새 문장 {결과}', steps: ['할 일'], after: null }
+  const generated = (keys: string[], extra: Partial<GeneratedProject> = {}): GeneratedProject => ({ keys, title: `프로젝트 ${keys.join('+')}`, sentence: '새 문장 {결과}', steps: ['할 일'], after: null, ...extra })
 
-  it('이미 만든 문장은 그대로 두고 새로 고른 방법만 더한다', () => {
+  it('이미 만든 문장은 그대로 두고 아직 문장이 없는 방법만 새로 받는다', () => {
     const kept = item('1:1', { ticked: ['가설 쓰기'] })
-    assert.deepEqual(missingPicks([kept], picks).map(({ key }) => key), ['2:0'])
-    const items = reconcileItems([kept], picks, new Map([['2:0', generated]]))
-    assert.deepEqual(items.map(({ key }) => key), ['1:1', '2:0'])
+    assert.deepEqual(missingPicks([kept], picks).map(({ key }) => key), ['2:0', '3:1'])
+    const items = reconcileItems([kept], picks, [generated(['2:0']), generated(['3:1'])])
+    assert.deepEqual(items.map(({ key }) => key), ['1:1', '2:0', '3:1'])
     assert.deepEqual(items[0]!.ticked, ['가설 쓰기'])
     assert.equal(items[1]!.sentence, '새 문장 {결과}')
   })
 
-  it('더 이상 고르지 않은 방법의 문장은 뺀다', () => {
-    const items = reconcileItems([item('1:1'), item('9:9')], picks.slice(0, 1), new Map())
-    assert.deepEqual(items.map(({ key }) => key), ['1:1'])
+  it('여러 방법을 묶은 프로젝트는 방법을 모두 덮고, 시간은 합쳐 16시간까지만 센다', () => {
+    const items = reconcileItems([], picks, [generated(['1:1', '2:0']), generated(['3:1'])])
+    assert.deepEqual(items.map(itemKeys), [['1:1', '2:0'], ['3:1']])
+    assert.deepEqual(items.map(({ hours }) => hours), [8, 4])
+    assert.deepEqual(items[0]!.sources, ['A 1', 'B 0'])
+    assert.equal(items[0]!.requirement, 'A · B')
+    assert.equal(reconcileItems([], [{ ...picks[0]!, hours: 12 }, { ...picks[1]!, hours: 12 }], [generated(['1:1', '2:0'])])[0]!.hours, 16)
+  })
+
+  it('묶은 프로젝트의 방법이 모두 문장을 가졌으면 더 받을 방법이 없다', () => {
+    const merged = item('1:1', { keys: ['1:1', '2:0'] })
+    assert.deepEqual(missingPicks([merged], picks).map(({ key }) => key), ['3:1'])
+  })
+
+  it('더 이상 고르지 않은 방법이 들어 있는 문장은 뺀다', () => {
+    const merged = item('1:1', { keys: ['1:1', '9:9'] })
+    assert.deepEqual(reconcileItems([merged, item('2:0')], picks.slice(0, 2), []).map(({ key }) => key), ['2:0'])
+  })
+
+  it('이미 문장이 있는 방법을 다시 묶어 오면 버린다', () => {
+    const items = reconcileItems([item('1:1')], picks, [generated(['1:1', '2:0']), generated(['3:1'])])
+    assert.deepEqual(items.map(({ key }) => key), ['1:1', '3:1'])
   })
 
   it('방법을 고른 순서를 따른다', () => {
-    const items = reconcileItems([item('2:0')], picks, new Map([['1:1', generated]]))
-    assert.deepEqual(items.map(({ key }) => key), ['1:1', '2:0'])
+    const items = reconcileItems([item('3:1')], picks, [generated(['1:1'])])
+    assert.deepEqual(items.map(({ key }) => key), ['1:1', '3:1'])
   })
 })
 

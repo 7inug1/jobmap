@@ -46,22 +46,54 @@ export function projectPicks(directions: readonly Direction[], picks: readonly s
   )
 }
 
-/** 아직 문장을 만들지 않은 방법. */
-export function missingPicks(items: readonly SentenceItem[], picks: readonly PickInfo[]): PickInfo[] {
-  return picks.filter(({ key }) => !items.some((item) => item.key === key))
+/** 문장이 덮는 방법의 키. 묶은 프로젝트는 방법 여러 개를 덮는다. */
+export function itemKeys(item: SentenceItem): string[] {
+  return item.keys ?? [item.key]
 }
 
-export type GeneratedSentence = { sentence: string; steps: string[]; after: string | null }
+/** 아직 문장이 없는 방법. */
+export function missingPicks(items: readonly SentenceItem[], picks: readonly PickInfo[]): PickInfo[] {
+  return picks.filter(({ key }) => !items.some((item) => itemKeys(item).includes(key)))
+}
 
-/** 고른 방법 순서대로 문장을 맞춘다. 이미 있는 문장은 그대로 두고, 고르지 않게 된 방법의 문장은 뺀다. */
-export function reconcileItems(items: readonly SentenceItem[], picks: readonly PickInfo[], generated: ReadonlyMap<string, GeneratedSentence>): SentenceItem[] {
-  return picks.flatMap((pick) => {
-    const kept = items.find((item) => item.key === pick.key)
-    if (kept) return [kept]
-    const made = generated.get(pick.key)
-    if (!made) return []
-    return [{ key: pick.key, requirement: pick.requirement, label: pick.label, hours: pick.hours, ...made, ticked: [], answers: {}, done: false }]
+/** AI가 만든 프로젝트 하나. 방법 여러 개를 하나의 프로젝트로 묶었을 수 있다. */
+export type GeneratedProject = { keys: string[]; title: string; sentence: string; steps: string[]; after: string | null }
+
+// 묶은 프로젝트의 최소 시간. 방법들의 시간을 더하되 한 프로젝트가 무한정 커지지 않게 한다.
+const MAX_PROJECT_HOURS = 16
+
+/**
+ * 고른 방법에 맞게 문장을 맞춘다. 이미 있는 문장은 그대로 두고, 고르지 않게 된 방법이 들어 있는 문장은 뺀다.
+ * 새로 받은 프로젝트는 아직 문장이 없는 방법을 덮을 때만 더한다. 순서는 방법을 고른 순서를 따른다.
+ */
+export function reconcileItems(items: readonly SentenceItem[], picks: readonly PickInfo[], generated: readonly GeneratedProject[]): SentenceItem[] {
+  const pickKeys = picks.map(({ key }) => key)
+  const kept = items.filter((item) => itemKeys(item).every((key) => pickKeys.includes(key)))
+  const covered = new Set(kept.flatMap(itemKeys))
+
+  const added = generated.flatMap((project) => {
+    const parts = project.keys.flatMap((key) => (picks.find((pick) => pick.key === key) ? [picks.find((pick) => pick.key === key)!] : []))
+    if (parts.length === 0 || parts.length !== project.keys.length || project.keys.some((key) => covered.has(key))) return []
+    project.keys.forEach((key) => covered.add(key))
+    const merged = parts.length > 1
+    const item: SentenceItem = {
+      key: project.keys[0]!,
+      ...(merged ? { keys: project.keys, sources: parts.map(({ label }) => label) } : {}),
+      requirement: [...new Set(parts.map(({ requirement }) => requirement))].join(' · '),
+      label: project.title,
+      hours: Math.min(MAX_PROJECT_HOURS, parts.reduce((total, { hours }) => total + hours, 0)),
+      sentence: project.sentence,
+      steps: project.steps,
+      after: project.after,
+      ticked: [],
+      answers: {},
+      done: false,
+    }
+    return [item]
   })
+
+  const order = (item: SentenceItem) => Math.min(...itemKeys(item).map((key) => pickKeys.indexOf(key)))
+  return [...kept, ...added].toSorted((a, b) => order(a) - order(b))
 }
 
 export const PAGE_BREAK = '\f'

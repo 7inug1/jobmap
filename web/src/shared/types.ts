@@ -31,6 +31,10 @@ export type SentenceItem = {
   hours: number
   sentence: string
   steps: string[]
+  /** 한 프로젝트로 묶은 방법들의 키. 묶지 않았으면 없고 key 하나다. */
+  keys?: string[]
+  /** 묶은 방법의 이름들. 묶지 않았으면 없다. */
+  sources?: string[]
   /** 이 문장이 들어갈 이력서의 기존 문장. 모르면 null이다. */
   after: string | null
   /** 해낸 할 일(글자 그대로). */

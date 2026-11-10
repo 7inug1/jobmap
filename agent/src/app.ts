@@ -55,7 +55,7 @@ app.post('/api/resume-sentences', async (c) => {
 	const parsed = v.safeParse(sentencesRequest, await c.req.json().catch(() => null));
 	if (!parsed.success) return c.json({ ok: false }, 400);
 	if (!(await dailyLimit.takeSentences())) return c.json({ ok: false, reason: 'daily_limit' }, 429);
-	const result = await generateSentences(env.AI as never, parsed.output);
+	const result = await generateSentences(env.AI as never, parsed.output, env.SENTENCES_MODEL || undefined);
 	return c.json(result, result.ok ? 200 : result.reason === 'quota' ? 429 : 502);
 });
 

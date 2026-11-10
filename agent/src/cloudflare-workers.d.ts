@@ -11,6 +11,8 @@ declare module 'cloudflare:workers' {
 		DAILY_COMPARE_LIMIT?: number;
 		DAILY_DIRECTIONS_LIMIT?: number;
 		DAILY_SENTENCES_LIMIT?: number;
+		/** 이력서 문장 만들기에만 쓸 모델. 비우면 기본 모델을 쓴다. */
+		SENTENCES_MODEL?: string;
 	};
 
 	export abstract class DurableObject {

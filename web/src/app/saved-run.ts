@@ -35,6 +35,8 @@ function isSentenceItem(value: unknown): boolean {
   return (
     isObject(value) &&
     isString(value.key) &&
+    isOptional(value.keys, (keys) => isArrayOf(keys, isString)) &&
+    isOptional(value.sources, (sources) => isArrayOf(sources, isString)) &&
     isString(value.requirement) &&
     isString(value.label) &&
     typeof value.hours === 'number' &&

@@ -1,4 +1,4 @@
-import { useState } from 'react'
+import { useEffect, useRef, useState } from 'react'
 import type { Run, SentenceItem } from '../../shared/types.ts'
 import { ResumePaper } from './ResumePaper.tsx'
 import { SentenceText } from './SentenceText.tsx'
@@ -27,6 +27,17 @@ export function SentenceFlow({
   const [index, setIndex] = useState(0)
   // 확대가 끝나면 자동으로 넘어갈 화면. 처음에는 문장 확인이고, 최종 계획에서 위치를 다시 볼 때는 최종 계획으로 돌아온다.
   const [afterZoom, setAfterZoom] = useState<Phase>('cards')
+  // 다음 문장이나 이전 문장으로 넘어가면 새 카드가 보이도록 스크롤한다. 처음 화면에서는 스크롤하지 않는다.
+  const currentCard = useRef<HTMLDivElement>(null)
+  const moved = useRef(false)
+  useEffect(() => {
+    if (phase !== 'cards') return
+    if (!moved.current) {
+      moved.current = true
+      return
+    }
+    currentCard.current?.scrollIntoView({ behavior: 'smooth', block: 'start' })
+  }, [index, phase])
 
   const pages = resumePages(run.resume)
   const placed = placeSentences(pages, items)
@@ -88,43 +99,52 @@ export function SentenceFlow({
       <>
         <div className="head">
           <h1>문장을 하나씩 확인할게요</h1>
-          <span className="lead-line">맞으면 넘어가고, 할 일이 다르면 지금 고쳐 주세요.</span>
+          <span className="lead-line">왼쪽 이력서에서 문장이 들어갈 자리를 보면서, 맞으면 넘어가고 할 일이 다르면 지금 고쳐 주세요.</span>
         </div>
-        {items.slice(0, index).map((done) => (
-          <article className="q-card answered" key={done.key}>
-            <div className="q-top">
-              <span className="tag-resume">이력서에 남아요</span>
-              <span className="check">✓ 확인했어요</span>
+        <div className="resume-split">
+          <aside className="resume-side">
+            <ResumePaper resume={run.resume} items={items} activeKey={item.key} compact />
+          </aside>
+          <div className="resume-main">
+            {items.slice(0, index).map((done) => (
+              <article className="q-card answered" key={done.key}>
+                <div className="q-top">
+                  <span className="tag-resume">이력서에 남아요</span>
+                  <span className="check">✓ 확인했어요</span>
+                </div>
+                <h3 className="confirm-title">{done.label}</h3>
+                <div className="goal">
+                  <span>
+                    <SentenceText sentence={done.sentence} answers={done.answers} />
+                  </span>
+                </div>
+                <ul className="rule-list">
+                  {done.steps.map((step) => (
+                    <li key={step}>{step}</li>
+                  ))}
+                </ul>
+              </article>
+            ))}
+            <div className="card-anchor" ref={currentCard}>
+              <ConfirmCard
+                key={item.key}
+                item={item}
+                position={index + 1}
+                total={items.length}
+                onSteps={(steps) => update(item.key, { steps })}
+                onSentence={(sentence) => update(item.key, { sentence, answers: {} })}
+                onNext={() => (index + 1 < items.length ? setIndex(index + 1) : setPhase('final'))}
+                onPrevious={index > 0 ? () => setIndex(index - 1) : onBack}
+                previousLabel={index > 0 ? '이전 문장을 볼게요' : '방향을 다시 고를게요'}
+                onRemove={() => {
+                  onRemove(item.key)
+                  setIndex(Math.min(index, Math.max(0, items.length - 2)))
+                }}
+                isLast={index + 1 >= items.length}
+              />
             </div>
-            <h3 className="confirm-title">{done.label}</h3>
-            <div className="goal">
-              <span>
-                <SentenceText sentence={done.sentence} answers={done.answers} />
-              </span>
-            </div>
-            <ul className="rule-list">
-              {done.steps.map((step) => (
-                <li key={step}>{step}</li>
-              ))}
-            </ul>
-          </article>
-        ))}
-        <ConfirmCard
-          key={item.key}
-          item={item}
-          position={index + 1}
-          total={items.length}
-          onSteps={(steps) => update(item.key, { steps })}
-          onSentence={(sentence) => update(item.key, { sentence, answers: {} })}
-          onNext={() => (index + 1 < items.length ? setIndex(index + 1) : setPhase('final'))}
-          onPrevious={index > 0 ? () => setIndex(index - 1) : onBack}
-          previousLabel={index > 0 ? '이전 문장을 볼게요' : '방향을 다시 고를게요'}
-          onRemove={() => {
-            onRemove(item.key)
-            setIndex(Math.min(index, Math.max(0, items.length - 2)))
-          }}
-          isLast={index + 1 >= items.length}
-        />
+          </div>
+        </div>
       </>
     )
   }
@@ -157,7 +177,6 @@ export function SentenceFlow({
             <article className="sent-card" key={item.key}>
               <div className="sent-top">
                 <b>{item.label}</b>
-                <span className="small">최소 {item.hours}시간</span>
               </div>
               <ul className="rule-list">
                 {item.steps.map((step) => (
@@ -230,6 +249,7 @@ function ConfirmCard({
         <span className="tag-resume">이력서에 남아요</span>
       </div>
       <h2>{item.label}</h2>
+      {item.sources ? <span className="small">방법 {item.sources.length}개를 하나의 프로젝트로 묶었어요. {item.sources.join(', ')}</span> : null}
       <div className="goal">
         <span className="small">끝나면 이력서에 들어갈 문장</span>
         {editing ? (
@@ -272,7 +292,7 @@ function ConfirmCard({
         )}
       </div>
       <div className="to-do">
-        <h4>이 문장을 쓰려면, 최소 {item.hours}시간</h4>
+        <h4>이 문장을 쓰려면 이렇게 해요</h4>
         <ul className="edit-steps">
           {item.steps.map((step) => (
             <li key={step}>

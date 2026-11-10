@@ -296,3 +296,20 @@ a.btn, a.btn-line { text-decoration: none; }
 .paper-item::before { content: "• "; color: var(--mfg); }
 .paper .paper-sub { margin-top: 6px; font-weight: 700; }
 
+/* 이력서 문장 확인: 이력서는 한쪽에 두고 문장 카드를 하나씩 확인한다 */
+.page.wide { width: min(1120px, 100%); }
+.page.wide > * { max-width: 760px; width: 100%; }
+.page.wide > .resume-split { max-width: none; }
+.resume-split { display: grid; gap: 20px; align-items: start; }
+.resume-main { display: grid; gap: 16px; min-width: 0; }
+.card-anchor { scroll-margin-top: calc(var(--top-h) + 12px); }
+.paper.compact { overflow-y: auto; max-height: 320px; }
+.resume-side { min-width: 0; }
+@media (min-width: 960px) {
+  .resume-split { grid-template-columns: minmax(0, 1fr) minmax(0, 1fr); }
+  .resume-side { position: sticky; top: calc(var(--top-h) + 12px); }
+  .paper.compact { max-height: calc(100vh - var(--top-h) - 130px); }
+}
+.paper .added.active { background: var(--keep); outline: 3px solid var(--fg); }
+.paper .added.active .added-label { color: var(--fg); }
+
