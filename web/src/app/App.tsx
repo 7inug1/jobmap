@@ -42,6 +42,7 @@ function Layout() {
           <Route path="/" element={<StartPage />} />
           <Route path="/runs/:id" element={<RunPage step={undefined} />} />
           <Route path="/runs/:id/directions" element={<RunPage step="directions" />} />
+          <Route path="/runs/:id/resume" element={<RunPage step="resume" />} />
           <Route path="/runs/:id/plan" element={<RunPage step="plan" />} />
           <Route path="/history" element={<History />} />
           <Route path="*" element={<Navigate to="/" replace />} />

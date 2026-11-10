@@ -11,7 +11,12 @@ import { activeDirections, appendDirections, nextBatch, picksWithout, rankGaps, 
 import { fetchDirections } from '../features/directions/fetch-directions.ts'
 import { DEFAULT_WEEKLY_HOURS } from '../features/week-plan/week-plan.ts'
 import { WeekPlan } from '../features/week-plan/WeekPlan.tsx'
-import { directionsFailure } from '../shared/failure-reasons.ts'
+import { fetchSentences } from '../features/resume/fetch-sentences.ts'
+import { ResumeTab } from '../features/resume/ResumeTab.tsx'
+import { SentenceFlow } from '../features/resume/SentenceFlow.tsx'
+import { SentencesLoading } from '../features/resume/SentencesLoading.tsx'
+import { missingPicks, projectPicks, reconcileItems } from '../features/resume/sentences.ts'
+import { directionsFailure, sentencesFailure } from '../shared/failure-reasons.ts'
 import type { Completion, Gap, Run } from '../shared/types.ts'
 import { runPath, type Step } from './runs.ts'
 import { useRuns } from './runs-context.ts'
@@ -104,6 +109,51 @@ export function RunFlow({ run, step }: { run: Run; step: Step }) {
     onChange({ ...run, skippedGaps: skipped.filter((name) => name !== requirement) })
   }
 
+  // 방법을 확정하면 고른 프로젝트마다 이력서에 넣을 문장을 만든다. 공부만 골랐으면 이력서를 바꾸지 않으므로 바로 이번 주 할 일로 간다.
+  const [confirmingCount, setConfirmingCount] = useState(0)
+  const [confirmFailure, setConfirmFailure] = useState<ReturnType<typeof sentencesFailure> | null>(null)
+  const [confirmFailures, setConfirmFailures] = useState(0)
+
+  async function confirmDirections() {
+    if (!run.directions) return
+    const saved = run.directions
+    const picks = projectPicks(activeDirections(saved.directions, skipped), saved.picks)
+    const existing = run.sentences?.items ?? []
+    if (picks.length === 0) {
+      if (run.sentences) onChange({ ...run, sentences: undefined })
+      navigate(runPath(run.id, 'plan'))
+      return
+    }
+    const missing = missingPicks(existing, picks)
+    if (missing.length === 0) {
+      const confirmed = run.sentences?.confirmed ?? false
+      onChange({ ...run, sentences: { items: reconcileItems(existing, picks, new Map()), confirmed } })
+      navigate(runPath(run.id, confirmed ? 'plan' : 'resume'))
+      return
+    }
+    setConfirmingCount(missing.length)
+    setConfirmFailure(null)
+    try {
+      const generated = await fetchSentences(missing, run.resume)
+      onChange({ ...run, sentences: { items: reconcileItems(existing, picks, generated), confirmed: false } })
+      navigate(runPath(run.id, 'resume'))
+    } catch (error) {
+      setConfirmFailures(confirmFailures + 1)
+      setConfirmFailure(sentencesFailure(error, confirmFailures + 1))
+    } finally {
+      setConfirmingCount(0)
+    }
+  }
+
+  function removeSentence(key: string) {
+    if (!run.sentences || !run.directions) return
+    onChange({
+      ...run,
+      sentences: { ...run.sentences, items: run.sentences.items.filter((item) => item.key !== key) },
+      directions: { ...run.directions, picks: run.directions.picks.filter((pick) => pick !== key) },
+    })
+  }
+
   async function loadMoreDirections() {
     if (!run.directions) return
     const saved = run.directions
@@ -120,12 +170,31 @@ export function RunFlow({ run, step }: { run: Run; step: Step }) {
     }
   }
 
+  if (confirmingCount > 0) return <SentencesLoading count={confirmingCount} />
+
+  if (step === 'resume' && run.directions && run.sentences) {
+    return run.sentences.confirmed ? (
+      <ResumeTab run={run} onChange={onChange} planHref={runPath(run.id, 'plan')} />
+    ) : (
+      <SentenceFlow
+        run={run}
+        onChange={onChange}
+        onRemove={removeSentence}
+        onBack={() => navigate(runPath(run.id, 'directions'))}
+        onStart={() => {
+          onChange({ ...run, sentences: { ...run.sentences!, confirmed: true } })
+          navigate(runPath(run.id, 'plan'))
+        }}
+      />
+    )
+  }
   if (step === 'plan' && run.directions) {
     return (
       <WeekPlan
         directions={activeDirections(run.directions.directions, skipped)}
         picks={run.directions.picks}
         remainingCount={remaining.length}
+        resumeHref={run.sentences ? runPath(run.id, 'resume') : undefined}
         completions={completionsOf(run)}
         weeklyHours={run.weeklyHours ?? DEFAULT_WEEKLY_HOURS}
         onCompletions={(completions) => onChange({ ...run, completions, doneTasks: undefined })}
@@ -152,7 +221,8 @@ export function RunFlow({ run, step }: { run: Run; step: Step }) {
         picks={saved.picks}
         weeklyHours={run.weeklyHours ?? DEFAULT_WEEKLY_HOURS}
         onPicks={(picks) => onChange({ ...run, directions: { ...saved, picks } })}
-        onConfirm={() => navigate(runPath(run.id, 'plan'))}
+        onConfirm={confirmDirections}
+        confirmFailure={confirmFailure}
         onBack={() => navigate(runPath(run.id))}
       />
     )

@@ -31,6 +31,23 @@ function isRow(value: unknown): boolean {
   )
 }
 
+function isSentenceItem(value: unknown): boolean {
+  return (
+    isObject(value) &&
+    isString(value.key) &&
+    isString(value.requirement) &&
+    isString(value.label) &&
+    typeof value.hours === 'number' &&
+    isString(value.sentence) &&
+    isArrayOf(value.steps, isString) &&
+    (value.after === null || isString(value.after)) &&
+    isArrayOf(value.ticked, isString) &&
+    isObject(value.answers) &&
+    Object.values(value.answers).every(isString) &&
+    typeof value.done === 'boolean'
+  )
+}
+
 function isGap(value: unknown): boolean {
   return isObject(value) && isString(value.requirement) && isVerdict(value.verdict)
 }
@@ -55,6 +72,7 @@ function isRun(value: unknown): value is Run {
     isOptional(value.directions, isDirectionsRun) &&
     isOptional(value.weeklyHours, (hours) => typeof hours === 'number') &&
     isOptional(value.doneTasks, (tasks) => isArrayOf(tasks, isString)) &&
+    isOptional(value.sentences, (state) => isObject(state) && typeof state.confirmed === 'boolean' && isArrayOf(state.items, isSentenceItem)) &&
     isOptional(value.skippedGaps, (names) => isArrayOf(names, isString)) &&
     isOptional(value.createdAt, (time) => typeof time === 'number') &&
     isOptional(value.rows, (rows) => isArrayOf(rows, isRow)) &&

@@ -32,3 +32,9 @@ export function itemsToText(items: readonly TextItem[]): string {
 
   return lines.map(joinLine).join('\n').replace(CONTROL_CHARS, ' ')
 }
+
+/** 쪽 사이에 구분 줄(\f)을 넣어, 이력서 문장이 들어갈 쪽을 알 수 있게 한다. 글자가 없는 쪽은 건너뛴다. */
+export function joinPages(pages: readonly string[]): string {
+  return pages.filter((page) => page.trim() !== '').join('\n\f\n')
+}
+

@@ -14,6 +14,7 @@ export function DirectionPicker({
   weeklyHours,
   onPicks,
   onConfirm,
+  confirmFailure,
   onBack,
 }: {
   directions: Direction[]
@@ -27,6 +28,7 @@ export function DirectionPicker({
   weeklyHours: number
   onPicks: (picks: string[]) => void
   onConfirm: () => void
+  confirmFailure: { message: string; canRetry: boolean } | null
   onBack: () => void
 }) {
   const { studyHours, projectHours, weeks } = summarizePicks(directions, picks, weeklyHours)
@@ -135,13 +137,18 @@ export function DirectionPicker({
           ? `이력서 ${projectHours}시간, 공부 ${studyHours}시간이에요. 일주일 ${weeklyHours}시간이면 약 ${weeks}주 걸려요.`
           : '고르지 않은 항목은 이번에 하지 않아요.'}
       </p>
+      {confirmFailure ? (
+        <p className="error" role="alert">
+          {confirmFailure.message}
+        </p>
+      ) : null}
       <div className="actions-row">
         {picks.length === 0 ? (
           <button className="btn-line" type="button" onClick={() => onPicks(recommendedPicks(directions))}>
             추천대로 고를게요
           </button>
         ) : null}
-        <button className="btn" type="button" disabled={picks.length === 0} onClick={onConfirm}>
+        <button className="btn" type="button" disabled={picks.length === 0 || confirmFailure?.canRetry === false} onClick={onConfirm}>
           이대로 할게요
         </button>
         <button className="btn-line" type="button" onClick={onBack}>

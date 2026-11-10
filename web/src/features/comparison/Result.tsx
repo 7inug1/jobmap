@@ -5,7 +5,7 @@ import { FIRST_BATCH } from '../directions/directions.ts'
 import type { DirectionsRun, Gap, Verdict } from '../../shared/types.ts'
 import { Annotation } from './Annotation.tsx'
 import { annotatePosting, directionsWillReset, gapsFromRows, repeatsLine, type EditedRow } from './comparison.ts'
-import { classifyLines } from './posting-lines.ts'
+import { classifyLines } from '../../shared/text-lines.ts'
 import { VERDICTS } from './verdicts.ts'
 
 export function Result({

@@ -5,6 +5,7 @@ import { guardStep, runPath, type Step } from './runs.ts'
 const STEPS: { label: string; step: Step }[] = [
   { label: '비교 결과', step: undefined },
   { label: '방법 고르기', step: 'directions' },
+  { label: '이력서 문장', step: 'resume' },
   { label: '이번 주 할 일', step: 'plan' },
 ]
 

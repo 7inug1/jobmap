@@ -1,7 +1,7 @@
 import { applyEdits } from '../features/comparison/comparison.ts'
 import type { Run } from '../shared/types.ts'
 
-export type Step = 'directions' | 'plan' | undefined
+export type Step = 'directions' | 'resume' | 'plan' | undefined
 export type Progress = 'compare' | 'directions' | 'plan'
 
 // 이 브라우저에 쌓는 기록 수. 기록마다 이력서와 공고 원문이 들어 있어 무한히 쌓지 않는다.
@@ -9,7 +9,7 @@ export const MAX_RUNS = 20
 const UNFINISHED_KEEP_MS = 24 * 60 * 60 * 1000
 const MAX_TITLE_LENGTH = 60
 
-export function runPath(id: string, step?: 'directions' | 'plan'): string {
+export function runPath(id: string, step?: 'directions' | 'resume' | 'plan'): string {
   return step ? `/runs/${id}/${step}` : `/runs/${id}`
 }
 
@@ -53,6 +53,10 @@ export function summarizeRun(run: Run) {
 /** 아직 갈 수 없는 단계의 주소로 들어오면 갈 수 있는 가장 가까운 단계의 주소를 돌려준다. 갈 수 있으면 null이다. */
 export function guardStep(run: Run, step: Step): string | null {
   if (step === 'directions' && !run.directions) return runPath(run.id)
+  if (step === 'resume') {
+    if (!run.directions) return runPath(run.id)
+    if (!run.sentences) return runPath(run.id, 'directions')
+  }
   if (step === 'plan') {
     if (!run.directions) return runPath(run.id)
     if (run.directions.picks.length === 0) return runPath(run.id, 'directions')

@@ -1,6 +1,6 @@
 import assert from 'node:assert/strict'
 import { describe, it } from 'node:test'
-import { itemsToText } from './resume-lines.ts'
+import { itemsToText, joinPages } from './resume-lines.ts'
 
 const item = (str: string, x: number, y: number, width = str.length * 10) => ({
   str,
@@ -39,3 +39,18 @@ describe('itemsToText', () => {
     assert.equal(itemsToText([]), '')
   })
 })
+
+describe('joinPages', () => {
+  it('쪽 사이에 쪽 구분(\\f) 줄을 넣는다', () => {
+    assert.equal(joinPages(['1쪽 글', '2쪽 글']), '1쪽 글\n\f\n2쪽 글')
+  })
+
+  it('글자가 없는 쪽은 건너뛴다', () => {
+    assert.equal(joinPages(['1쪽 글', '', '3쪽 글']), '1쪽 글\n\f\n3쪽 글')
+  })
+
+  it('한 쪽이면 구분 없이 그대로다', () => {
+    assert.equal(joinPages(['글']), '글')
+  })
+})
+

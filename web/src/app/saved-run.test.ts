@@ -55,6 +55,21 @@ describe('parseSavedRun', () => {
     assert.deepEqual(parse({ ...run, rows }), { ...run, rows })
   })
 
+  it('이력서 문장을 복원한다', () => {
+    const items = [{ key: '1:1', requirement: 'A', label: '방법', hours: 2, sentence: '문장 {결과}', steps: ['할 일'], after: null, ticked: [], answers: {}, done: false }]
+    assert.deepEqual(parse({ ...run, sentences: { items, confirmed: true } }), { ...run, sentences: { items, confirmed: true } })
+  })
+
+  it('이력서 문장 형식이 틀리면 null이다', () => {
+    assert.equal(parse({ ...run, sentences: { items: [{ key: 1 }], confirmed: true } }), null)
+    assert.equal(parse({ ...run, sentences: { items: [], confirmed: 'yes' } }), null)
+  })
+
+  it('해당 없음으로 뺀 요건을 복원한다', () => {
+    assert.deepEqual(parse({ ...run, skippedGaps: ['A'] }), { ...run, skippedGaps: ['A'] })
+    assert.equal(parse({ ...run, skippedGaps: [1] }), null)
+  })
+
   it('판단 형식이 틀리면 null이다', () => {
     assert.equal(parse({ ...run, rows: [{ requirement: 'A', verdict: 'maybe', postingQuote: '공고', resumeQuote: null }] }), null)
   })

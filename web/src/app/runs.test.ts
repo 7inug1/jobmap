@@ -17,6 +17,7 @@ describe('runPath', () => {
     assert.equal(runPath('a'), '/runs/a')
     assert.equal(runPath('a', 'directions'), '/runs/a/directions')
     assert.equal(runPath('a', 'plan'), '/runs/a/plan')
+    assert.equal(runPath('a', 'resume'), '/runs/a/resume')
   })
 })
 
@@ -101,6 +102,13 @@ describe('guardStep', () => {
 
   it('고른 방향이 없으면 이번 주 할 일은 방향 고르기로 돌려보낸다', () => {
     assert.equal(guardStep(withDirections('a', []), 'plan'), '/runs/a/directions')
+  })
+
+  it('이력서 문장은 방법을 고르고 확인한 뒤에만 열린다', () => {
+    assert.equal(guardStep(base('a'), 'resume'), '/runs/a')
+    assert.equal(guardStep(withDirections('a', ['1:1']), 'resume'), '/runs/a/directions')
+    const withSentences = { ...withDirections('a', ['1:1']), sentences: { items: [], confirmed: false } }
+    assert.equal(guardStep(withSentences, 'resume'), null)
   })
 
   it('갈 수 있는 화면은 그대로 둔다', () => {

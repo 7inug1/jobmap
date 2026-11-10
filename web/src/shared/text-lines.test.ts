@@ -1,6 +1,8 @@
 import assert from 'node:assert/strict'
 import { describe, it } from 'node:test'
-import { classifyLines } from './posting-lines.ts'
+import { classifyLines } from './text-lines.ts'
+
+const sections = (lines: string[]) => classifyLines(lines).map(({ kind, section }) => (kind === 'heading' ? (section ? 'section' : 'sub') : kind))
 
 const kinds = (lines: string[]) => classifyLines(lines).map(({ kind, text }) => `${kind}:${text}`)
 
@@ -35,4 +37,13 @@ describe('classifyLines', () => {
   it('서버가 표시한 제목은 모양과 상관없이 제목이고 표시는 뗀다', () => {
     assert.deepEqual(kinds(['### 자격요건', '## Annual Salary: $190,000']), ['heading:자격요건', 'heading:Annual Salary: $190,000'])
   })
+
+  it('이력서의 구역 이름은 구역 제목이고, 목록 위의 짧은 줄은 소제목이다', () => {
+    assert.deepEqual(sections(['경력', '한경에이셀 프론트엔드 2022.09 - 2026.02', '- 설계', '주요 프로젝트', '기술']), ['section', 'sub', 'item', 'section', 'section'])
+  })
+
+  it('서버가 표시한 제목은 구역 제목이다', () => {
+    assert.deepEqual(sections(['## 자격요건']), ['section'])
+  })
 })
+
