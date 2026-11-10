@@ -1,6 +1,7 @@
-import { useEffect, useState } from 'react'
+import { useState } from 'react'
 import { directionsFailure } from '../../shared/failure-reasons.ts'
-import { ProgressSteps } from '../../shared/ProgressSteps.tsx'
+import { DirectionsLoading } from '../directions/DirectionsLoading.tsx'
+import { FIRST_BATCH } from '../directions/directions.ts'
 import type { DirectionsRun, Gap, Verdict } from '../../shared/types.ts'
 import { Annotation } from './Annotation.tsx'
 import { annotatePosting, directionsWillReset, gapsFromRows, repeatsLine, type EditedRow } from './comparison.ts'
@@ -39,7 +40,7 @@ export function Result({
     }
   }
 
-  if (opening) return <DirectionsLoading gapCount={gaps.length} />
+  if (opening) return <DirectionsLoading batch={Math.min(FIRST_BATCH, gaps.length)} total={gaps.length} />
 
   const { lines, unplaced } = annotatePosting(posting, rows)
   const shapes = classifyLines(lines.map(({ text }) => text))
@@ -107,30 +108,3 @@ export function Result({
     </>
   )
 }
-
-/** 채울 방법을 받는 동안의 진행 화면. 서버가 한 번에 돌려줘서 중간 단계는 받는 신호가 없다. */
-function DirectionsLoading({ gapCount }: { gapCount: number }) {
-  const [seconds, setSeconds] = useState(0)
-
-  useEffect(() => {
-    const timer = setInterval(() => setSeconds((value) => value + 1), 1000)
-    return () => clearInterval(timer)
-  }, [])
-
-  return (
-    <>
-      <div className="head">
-        <h1>부족한 부분을 채울 방법을 찾고 있어요</h1>
-        <span className="lead-line">시작한 지 {seconds}초 지났어요.</span>
-      </div>
-      <ProgressSteps
-        steps={[
-          { label: `채워야 할 요건 ${gapCount}개를 정리했어요.`, state: 'done' },
-          { label: 'AI가 요건마다 공부와 프로젝트 방법을 2~3개씩 쓰고 있어요.', state: 'on' },
-          { label: '방법마다 걸리는 시간과 형식이 맞는지 확인할게요.', state: 'wait' },
-        ]}
-      />
-    </>
-  )
-}
-

@@ -1,7 +1,7 @@
 import assert from 'node:assert/strict'
 import { describe, it } from 'node:test'
 import type { Direction } from '../../shared/types.ts'
-import { recommendedPicks, summarizePicks } from './directions.ts'
+import { appendDirections, FIRST_BATCH, nextBatch, rankGaps, recommendedPicks, summarizePicks } from './directions.ts'
 
 const directions: Direction[] = [
   {
@@ -38,3 +38,54 @@ describe('picks', () => {
     assert.deepEqual(summarizePicks(directions, ['9:0'], 3), { studyHours: 0, projectHours: 0, weeks: 0 })
   })
 })
+
+const gap = (requirement: string, verdict: 'partial' | 'unmet') => ({ requirement, verdict })
+
+describe('rankGaps', () => {
+  it('불충족을 먼저, 일부 충족을 그다음에 두고 같은 판단끼리는 공고 순서를 지킨다', () => {
+    const ranked = rankGaps([gap('A', 'partial'), gap('B', 'unmet'), gap('C', 'partial'), gap('D', 'unmet')])
+    assert.deepEqual(ranked.map(({ requirement }) => requirement), ['B', 'D', 'A', 'C'])
+  })
+
+  it('원래 목록을 바꾸지 않는다', () => {
+    const gaps = [gap('A', 'partial'), gap('B', 'unmet')]
+    rankGaps(gaps)
+    assert.equal(gaps[0]!.requirement, 'A')
+  })
+})
+
+describe('nextBatch', () => {
+  const ranked = ['A', 'B', 'C', 'D', 'E', 'F', 'G'].map((name) => gap(name, 'unmet'))
+
+  it('처음에는 5개를 고른다', () => {
+    assert.equal(FIRST_BATCH, 5)
+    assert.deepEqual(nextBatch(ranked, 0).map(({ requirement }) => requirement), ['A', 'B', 'C', 'D', 'E'])
+  })
+
+  it('이미 방법을 본 요건 뒤에서 다음 5개를 고른다', () => {
+    assert.deepEqual(nextBatch(ranked, 5).map(({ requirement }) => requirement), ['F', 'G'])
+  })
+
+  it('다 봤으면 비어 있다', () => {
+    assert.deepEqual(nextBatch(ranked, 7), [])
+  })
+})
+
+describe('appendDirections', () => {
+  const made = (gapNumber: number, requirement: string): Direction => ({
+    gapNumber,
+    requirement,
+    verdict: 'unmet',
+    options: [{ label: requirement, description: '', lane: 'study', hours: 1, recommended: true }],
+  })
+
+  it('새로 받은 요건 번호를 이어서 매겨, 고른 항목의 키가 바뀌지 않게 한다', () => {
+    const merged = appendDirections([made(1, 'A'), made(2, 'B')], [made(1, 'C'), made(2, 'D')])
+    assert.deepEqual(merged.map(({ gapNumber, requirement }) => `${gapNumber}:${requirement}`), ['1:A', '2:B', '3:C', '4:D'])
+  })
+
+  it('기존 목록이 비어 있으면 그대로 돌려준다', () => {
+    assert.deepEqual(appendDirections([], [made(1, 'A')]).map(({ gapNumber }) => gapNumber), [1])
+  })
+})
+

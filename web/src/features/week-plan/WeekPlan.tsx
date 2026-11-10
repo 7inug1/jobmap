@@ -10,6 +10,7 @@ export function WeekPlan({
   picks,
   completions,
   weeklyHours,
+  remainingCount,
   onCompletions,
   onWeeklyHours,
   onBack,
@@ -19,6 +20,7 @@ export function WeekPlan({
   picks: string[]
   completions: Completion[]
   weeklyHours: number
+  remainingCount: number
   onCompletions: (completions: Completion[]) => void
   onWeeklyHours: (hours: number) => void
   onBack: () => void
@@ -100,6 +102,9 @@ export function WeekPlan({
           <h2>끝낸 일</h2>
           <ul className="task-list">{done.map(doneRow)}</ul>
         </section>
+      ) : null}
+      {remainingCount > 0 ? (
+        <p className="small">아직 방법을 보지 않은 요건이 {remainingCount}개 있어요. 방향을 다시 고르는 화면에서 이어서 볼 수 있어요.</p>
       ) : null}
       <div className="actions-row">
         <button className="btn-line" type="button" onClick={onBack}>

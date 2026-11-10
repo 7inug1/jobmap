@@ -1,9 +1,12 @@
 import { pickKey } from '../../shared/pick-key.ts'
-import type { Direction, DirectionOption } from '../../shared/types.ts'
-import { recommendedPicks, summarizePicks } from './directions.ts'
+import type { Direction, DirectionOption, Gap } from '../../shared/types.ts'
+import { FIRST_BATCH, recommendedPicks, summarizePicks } from './directions.ts'
 
 export function DirectionPicker({
   directions,
+  remaining,
+  onLoadMore,
+  moreFailure,
   picks,
   weeklyHours,
   onPicks,
@@ -11,6 +14,9 @@ export function DirectionPicker({
   onBack,
 }: {
   directions: Direction[]
+  remaining: Gap[]
+  onLoadMore: () => void
+  moreFailure: { message: string; canRetry: boolean } | null
   picks: string[]
   weeklyHours: number
   onPicks: (picks: string[]) => void
@@ -73,6 +79,30 @@ export function DirectionPicker({
           </div>
         </section>
       ))}
+      {remaining.length > 0 ? (
+        <section className="remaining" aria-labelledby="remaining-title">
+          <h2 id="remaining-title">아직 방법을 보지 않은 요건이 {remaining.length}개 있어요</h2>
+          <p className="small">불충족인 요건부터 먼저 {directions.length}개의 방법을 정리해 드렸어요. 나머지도 원하면 이어서 볼 수 있어요.</p>
+          <ul>
+            {remaining.map(({ requirement, verdict }) => (
+              <li key={requirement}>
+                <span className={`pill ${verdict === 'unmet' ? 'lack' : 'part'}`}>{verdict === 'unmet' ? '불충족' : '일부 충족'}</span>
+                <span>{requirement}</span>
+              </li>
+            ))}
+          </ul>
+          {moreFailure ? (
+            <p className="error" role="alert">
+              {moreFailure.message}
+            </p>
+          ) : null}
+          {moreFailure?.canRetry === false ? null : (
+            <button className="btn-line" type="button" onClick={onLoadMore}>
+              다음 {Math.min(FIRST_BATCH, remaining.length)}개 요건의 방법도 볼게요
+            </button>
+          )}
+        </section>
+      ) : null}
       <p className="lead-line">
         {picks.length > 0
           ? `이력서 ${projectHours}시간, 공부 ${studyHours}시간이에요. 일주일 ${weeklyHours}시간이면 약 ${weeks}주 걸려요.`

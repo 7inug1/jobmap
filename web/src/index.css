@@ -185,4 +185,10 @@ input, textarea { width: 100%; padding: 10px 12px; font: inherit; color: inherit
 .draft-row .pill { flex: none; }
 @keyframes rise { from { opacity: 0; transform: translateY(4px); } to { opacity: 1; transform: none; } }
 @media (prefers-reduced-motion: reduce) { .draft-row { animation: none; } }
+.remaining { display: grid; gap: 10px; padding: 18px 20px; border: 1px dashed var(--line); border-radius: 14px; }
+.remaining h2 { margin: 0; font-size: 16px; font-weight: 800; }
+.remaining ul { display: grid; gap: 6px; margin: 0; padding: 0; list-style: none; }
+.remaining li { display: flex; align-items: flex-start; gap: 10px; font-size: 14px; }
+.remaining .pill { flex: none; }
+.remaining .btn-line { justify-self: start; }
 

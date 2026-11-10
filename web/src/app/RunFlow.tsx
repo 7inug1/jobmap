@@ -5,9 +5,12 @@ import { checkComparison, fixRequest } from '../features/comparison/check-compar
 import { Comparison } from '../features/comparison/Comparison.tsx'
 import { readComparison, sameGaps, type ComparisonView } from '../features/comparison/comparison.ts'
 import { DirectionPicker } from '../features/directions/DirectionPicker.tsx'
+import { DirectionsLoading } from '../features/directions/DirectionsLoading.tsx'
+import { appendDirections, nextBatch, rankGaps } from '../features/directions/directions.ts'
 import { fetchDirections } from '../features/directions/fetch-directions.ts'
 import { DEFAULT_WEEKLY_HOURS } from '../features/week-plan/week-plan.ts'
 import { WeekPlan } from '../features/week-plan/WeekPlan.tsx'
+import { directionsFailure } from '../shared/failure-reasons.ts'
 import type { Completion, Gap, Run } from '../shared/types.ts'
 
 /** 예전 기록의 끝낸 일은 전체 시간을 해낸 것으로 본다. 시간은 계산에서 일의 시간으로 줄어든다. */
@@ -61,13 +64,35 @@ export function RunFlow({
       ? { phase: 'failed', reason: 'evidence' }
       : streamed
 
+  // 방법은 한 번에 일부 요건만 받는다. 받은 요건 수(directions.length) 뒤의 요건이 아직 방법을 보지 않은 요건이다.
+  const [loadingMore, setLoadingMore] = useState(false)
+  const [moreFailure, setMoreFailure] = useState<ReturnType<typeof directionsFailure> | null>(null)
+  const [moreFailures, setMoreFailures] = useState(0)
+
   async function openDirections(gaps: Gap[]) {
-    if (run.directions && sameGaps(run.directions.gaps, gaps)) {
+    const ranked = rankGaps(gaps)
+    if (run.directions && sameGaps(run.directions.gaps, ranked)) {
       onChange({ ...run, stage: 'directions' })
       return
     }
-    const directions = await fetchDirections(gaps, run.resume)
-    onChange({ ...run, stage: 'directions', directions: { gaps, directions, picks: [] } })
+    const directions = await fetchDirections(nextBatch(ranked, 0), run.resume)
+    onChange({ ...run, stage: 'directions', directions: { gaps: ranked, directions, picks: [] } })
+  }
+
+  async function loadMoreDirections() {
+    if (!run.directions) return
+    const saved = run.directions
+    setLoadingMore(true)
+    setMoreFailure(null)
+    try {
+      const more = await fetchDirections(nextBatch(saved.gaps, saved.directions.length), run.resume)
+      onChange({ ...run, directions: { ...saved, directions: appendDirections(saved.directions, more) } })
+    } catch (error) {
+      setMoreFailures(moreFailures + 1)
+      setMoreFailure(directionsFailure(error, moreFailures + 1))
+    } finally {
+      setLoadingMore(false)
+    }
   }
 
   if (run.stage === 'plan' && run.directions) {
@@ -75,6 +100,7 @@ export function RunFlow({
       <WeekPlan
         directions={run.directions.directions}
         picks={run.directions.picks}
+        remainingCount={run.directions.gaps.length - run.directions.directions.length}
         completions={completionsOf(run)}
         weeklyHours={run.weeklyHours ?? DEFAULT_WEEKLY_HOURS}
         onCompletions={(completions) => onChange({ ...run, completions, doneTasks: undefined })}
@@ -86,9 +112,15 @@ export function RunFlow({
   }
   if (run.stage === 'directions' && run.directions) {
     const saved = run.directions
+    if (loadingMore) {
+      return <DirectionsLoading batch={nextBatch(saved.gaps, saved.directions.length).length} total={saved.gaps.length - saved.directions.length} />
+    }
     return (
       <DirectionPicker
         directions={saved.directions}
+        remaining={saved.gaps.slice(saved.directions.length)}
+        onLoadMore={loadMoreDirections}
+        moreFailure={moreFailure}
         picks={saved.picks}
         weeklyHours={run.weeklyHours ?? DEFAULT_WEEKLY_HOURS}
         onPicks={(picks) => onChange({ ...run, directions: { ...saved, picks } })}
