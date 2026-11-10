@@ -6,7 +6,7 @@ export async function fetchDirections(gaps: Gap[], resume: string): Promise<Dire
     headers: { 'content-type': 'application/json' },
     body: JSON.stringify({ gaps, resume }),
   })
-  const result = (await response.json()) as { ok: true; directions: Direction[] } | { ok: false }
-  if (!result.ok) throw new Error('directions_failed')
+  const result = (await response.json()) as { ok: true; directions: Direction[] } | { ok: false; reason: string }
+  if (!result.ok) throw new Error(result.reason)
   return result.directions
 }

@@ -26,7 +26,7 @@ app.post('/api/directions', async (c) => {
 	const parsed = v.safeParse(directionsRequest, await c.req.json().catch(() => null));
 	if (!parsed.success) return c.json({ ok: false }, 400);
 	const result = await generateDirections(env.AI as never, parsed.output);
-	return c.json(result, result.ok ? 200 : 502);
+	return c.json(result, result.ok ? 200 : result.reason === 'quota' ? 429 : 502);
 });
 
 export default app;

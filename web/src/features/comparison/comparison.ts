@@ -1,12 +1,14 @@
-import type { Gap, Row, Verdict } from '../../shared/types.ts'
+import { isQuotaError, type FailureReason } from '../../shared/failure-reasons.ts'
+import type { DirectionsRun, Gap, Row, Verdict } from '../../shared/types.ts'
 
 export type EditedRow = Row & { aiVerdict: Verdict }
 
 export type ComparisonView =
   | { phase: 'working'; step: string | null }
   | { phase: 'done'; rows: Row[] }
-  | { phase: 'failed' }
+  | { phase: 'failed'; reason: FailureReason }
 
+type Settlement = { outcome: string; error?: unknown }
 type Part = { type: string; toolName?: string; state?: string; output?: unknown; data?: unknown }
 
 /**
@@ -15,7 +17,7 @@ type Part = { type: string; toolName?: string; state?: string; output?: unknown;
  */
 export function readComparison(
   messages: readonly { parts: readonly Part[] }[],
-  settlements: readonly unknown[],
+  settlements: readonly Settlement[],
   status: string,
 ): ComparisonView {
   const parts = messages.flatMap((message) => message.parts)
@@ -25,7 +27,9 @@ export function readComparison(
   )
   if (saved) return { phase: 'done', rows: (saved.output as { rows: Row[] }).rows }
 
-  if (settlements.length > 0 || status === 'error') return { phase: 'failed' }
+  if (settlements.some(({ error }) => isQuotaError(error))) return { phase: 'failed', reason: 'quota' }
+  if (status === 'error' || settlements.some(({ outcome }) => outcome !== 'completed')) return { phase: 'failed', reason: 'connection' }
+  if (settlements.length > 0) return { phase: 'failed', reason: 'evidence' }
 
   const progress = parts.findLast((part) => part.type === 'data-progress')
   return { phase: 'working', step: progress ? (progress.data as { step: string }).step : null }
@@ -59,4 +63,13 @@ export function annotatePosting(posting: string, rows: readonly Pick<Row, 'posti
 
 export function gapsFromRows(rows: readonly Row[]): Gap[] {
   return rows.flatMap(({ requirement, verdict }) => (verdict === 'met' ? [] : [{ requirement, verdict }]))
+}
+
+export function sameGaps(a: readonly Gap[], b: readonly Gap[]): boolean {
+  return JSON.stringify(a) === JSON.stringify(b)
+}
+
+/** 판단을 고쳐서 이미 고른 방향이 사라지는 경우를 가려낸다. */
+export function directionsWillReset(saved: DirectionsRun | undefined, gaps: readonly Gap[]): boolean {
+  return saved !== undefined && saved.picks.length > 0 && !sameGaps(saved.gaps, gaps)
 }

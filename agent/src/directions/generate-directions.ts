@@ -31,7 +31,7 @@ type DirectionsRequest = v.InferOutput<typeof directionsRequest>;
 type Gap = DirectionsRequest['gaps'][number];
 
 export type Direction = Gap & { gapNumber: number; options: Option[] };
-export type GenerateResult = { ok: true; directions: Direction[] } | { ok: false };
+export type GenerateResult = { ok: true; directions: Direction[] } | { ok: false; reason: 'quota' | 'model_failed' };
 
 type AiBinding = { run(modelId: string, inputs: never): Promise<unknown> };
 
@@ -113,6 +113,11 @@ ${resume}
 </resume>`;
 }
 
+/** Workers AI의 일일 무료 한도 오류(4006)인지 본다. */
+function isQuotaError(error: unknown): boolean {
+	return error instanceof Error && /\b4006\b|daily free allocation/i.test(error.message);
+}
+
 function contentOf(answer: unknown): string {
 	const { choices, response } = (answer ?? {}) as { choices?: { message?: { content?: unknown } }[]; response?: unknown };
 	const content = choices?.[0]?.message?.content ?? response;
@@ -132,7 +137,7 @@ export async function generateDirections(ai: AiBinding, request: DirectionsReque
 			text = contentOf(await ai.run(MODEL_ID, { messages, max_tokens: MAX_TOKENS } as never));
 		} catch (error) {
 			console.error('directions_model_error', error);
-			return { ok: false };
+			return { ok: false, reason: isQuotaError(error) ? 'quota' : 'model_failed' };
 		}
 
 		const result = checkDirections(parseJson(text), request.gaps);
@@ -143,5 +148,5 @@ export async function generateDirections(ai: AiBinding, request: DirectionsReque
 			{ role: 'user', content: `다음 문제를 고쳐 JSON 전체를 다시 답하세요.\n${result.issues.join('\n')}` },
 		);
 	}
-	return { ok: false };
+	return { ok: false, reason: 'model_failed' };
 }

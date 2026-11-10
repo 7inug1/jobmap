@@ -1,7 +1,7 @@
 import assert from 'node:assert/strict'
 import { describe, it } from 'node:test'
 import type { Row } from '../../shared/types.ts'
-import { annotatePosting, applyEdits, gapsFromRows, readComparison } from './comparison.ts'
+import { annotatePosting, applyEdits, directionsWillReset, gapsFromRows, readComparison, sameGaps } from './comparison.ts'
 
 const row: Row = {
   requirement: 'React 3년',
@@ -26,15 +26,24 @@ describe('readComparison', () => {
   })
 
   it('모델이 저장됐다고 말해도 도구가 실패했으면 실패다', () => {
-    assert.deepEqual(readComparison([{ parts: [rejected, text] }], completed, 'idle'), { phase: 'failed' })
+    assert.deepEqual(readComparison([{ parts: [rejected, text] }], completed, 'idle'), { phase: 'failed', reason: 'evidence' })
   })
 
   it('도구를 부르지 않고 끝나면 실패다', () => {
-    assert.deepEqual(readComparison([{ parts: [text] }], completed, 'idle'), { phase: 'failed' })
+    assert.deepEqual(readComparison([{ parts: [text] }], completed, 'idle'), { phase: 'failed', reason: 'evidence' })
   })
 
   it('연결 오류면 실패다', () => {
-    assert.deepEqual(readComparison([], [], 'error'), { phase: 'failed' })
+    assert.deepEqual(readComparison([], [], 'error'), { phase: 'failed', reason: 'connection' })
+  })
+
+  it('요청이 실패로 끝나면 연결 오류로 본다', () => {
+    assert.deepEqual(readComparison([], [{ outcome: 'failed', error: 'boom' }], 'idle'), { phase: 'failed', reason: 'connection' })
+  })
+
+  it('한도 오류는 도구 실패보다 먼저 알려 준다', () => {
+    const quota = [{ outcome: 'failed', error: { message: '4006: you have used up your daily free allocation' } }]
+    assert.deepEqual(readComparison([{ parts: [rejected] }], quota, 'idle'), { phase: 'failed', reason: 'quota' })
   })
 
   it('끝나기 전에는 마지막 진행 단계를 보여 준다', () => {
@@ -86,5 +95,39 @@ describe('gapsFromRows', () => {
       { requirement: 'B', verdict: 'partial' },
       { requirement: 'C', verdict: 'unmet' },
     ])
+  })
+})
+
+describe('sameGaps', () => {
+  const gaps = [{ requirement: 'A', verdict: 'unmet' as const }]
+
+  it('요건과 판단이 같으면 같다', () => {
+    assert.equal(sameGaps(gaps, [{ requirement: 'A', verdict: 'unmet' }]), true)
+  })
+
+  it('판단이 다르면 다르다', () => {
+    assert.equal(sameGaps(gaps, [{ requirement: 'A', verdict: 'partial' }]), false)
+  })
+})
+
+describe('directionsWillReset', () => {
+  const gaps = [{ requirement: 'A', verdict: 'unmet' as const }]
+  const changed = [{ requirement: 'A', verdict: 'partial' as const }]
+  const saved = { gaps, directions: [], picks: ['1:0'] }
+
+  it('아직 방향을 받지 않았으면 초기화할 것이 없다', () => {
+    assert.equal(directionsWillReset(undefined, changed), false)
+  })
+
+  it('고른 것이 있고 판단이 바뀌면 초기화된다', () => {
+    assert.equal(directionsWillReset(saved, changed), true)
+  })
+
+  it('판단이 그대로면 초기화되지 않는다', () => {
+    assert.equal(directionsWillReset(saved, gaps), false)
+  })
+
+  it('고른 것이 없으면 알릴 필요가 없다', () => {
+    assert.equal(directionsWillReset({ ...saved, picks: [] }, changed), false)
   })
 })

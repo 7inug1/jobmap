@@ -99,16 +99,26 @@ describe('generateDirections', () => {
 
 	it('세 번 틀리면 실패로 끝낸다', async () => {
 		const ai = { run: vi.fn(async () => answer('죄송합니다')) };
-		expect(await generateDirections(ai, input)).toEqual({ ok: false });
+		expect(await generateDirections(ai, input)).toEqual({ ok: false, reason: 'model_failed' });
 		expect(ai.run).toHaveBeenCalledTimes(3);
 	});
 
 	it('모델 호출 자체가 실패해도 실패로 끝낸다', async () => {
 		const ai = {
 			run: vi.fn(async () => {
-				throw new Error('quota');
+				throw new Error('boom');
 			}),
 		};
-		expect(await generateDirections(ai, input)).toEqual({ ok: false });
+		expect(await generateDirections(ai, input)).toEqual({ ok: false, reason: 'model_failed' });
+	});
+
+	it('일일 한도 오류는 원인을 알려 주고 다시 부르지 않는다', async () => {
+		const ai = {
+			run: vi.fn(async () => {
+				throw new Error('4006: you have used up your daily free allocation of 10,000 neurons');
+			}),
+		};
+		expect(await generateDirections(ai, input)).toEqual({ ok: false, reason: 'quota' });
+		expect(ai.run).toHaveBeenCalledTimes(1);
 	});
 });

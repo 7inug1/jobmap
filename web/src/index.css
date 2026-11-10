@@ -119,3 +119,16 @@ input, textarea { width: 100%; padding: 10px 12px; font: inherit; color: inherit
 .task input { width: 18px; height: 18px; margin: 4px 0 0; }
 .task-body { display: grid; gap: 2px; min-width: 0; }
 .task.done b { color: var(--mfg); text-decoration: line-through; }
+
+.modal {
+  width: min(440px, calc(100vw - 32px));
+  padding: 24px;
+  border: 1px solid var(--line);
+  border-radius: 12px;
+  background: var(--bg);
+  color: var(--fg);
+}
+.modal::backdrop { background: hsl(240 8% 8% / 0.5); }
+.modal h2 { margin: 0 0 8px; font-size: 18px; }
+.modal p { margin: 0 0 12px; }
+.modal .actions-row { margin-top: 16px; }

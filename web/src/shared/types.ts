@@ -30,4 +30,5 @@ export type Run = Inputs & {
   directions?: DirectionsRun
   weeklyHours?: number
   doneTasks?: string[]
+  retries?: number
 }

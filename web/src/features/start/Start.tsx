@@ -1,17 +1,19 @@
-import { useState, type ChangeEvent, type FormEvent } from 'react'
+import { useEffect, useRef, useState, type ChangeEvent, type FormEvent } from 'react'
 import { startRun } from '../../shared/start-run.ts'
 import type { Inputs, Run } from '../../shared/types.ts'
+import {
+  checkPdfSize,
+  checkPostingText,
+  checkPostingUrl,
+  checkResumeText,
+  describePostingFailure,
+  MIN_RESUME_LENGTH,
+  pdfErrorMessage,
+  type PostingNotice,
+} from './input-checks.ts'
 import { classifyPostingUrl, SUPPORTED, UNSUPPORTED } from './posting-sources.ts'
+import { PostingFailedModal } from './PostingFailedModal.tsx'
 import { readResumePdf } from './resume-pdf.ts'
-
-const MIN_RESUME_LENGTH = 50
-
-const POSTING_ERRORS: Record<string, string> = {
-  invalid_url: 'https로 시작하는 공고 주소를 넣어 주세요.',
-  fetch_failed: '이 주소를 열지 못했어요. 주소를 확인하거나 본문을 붙여 넣어 주세요.',
-  not_html: '웹 페이지 주소만 읽을 수 있어요. 본문을 붙여 넣어 주세요.',
-  no_text: '이 페이지에서 공고 글을 찾지 못했어요. 본문을 붙여 넣어 주세요.',
-}
 
 export function Start({ initial, onStarted }: { initial: Inputs; onStarted: (run: Run) => void }) {
   const [resume, setResume] = useState(initial.resume)
@@ -22,25 +24,43 @@ export function Start({ initial, onStarted }: { initial: Inputs; onStarted: (run
 
   const [url, setUrl] = useState('')
   const [posting, setPosting] = useState(initial.posting)
-  const [postingError, setPostingError] = useState<string | null>(null)
+  const [notice, setNotice] = useState<PostingNotice | null>(null)
+  const urlInput = useRef<HTMLInputElement>(null)
+  const postingInput = useRef<HTMLTextAreaElement>(null)
+  const focusAfterNotice = useRef<HTMLElement | null | undefined>(undefined)
   const [pastePosting, setPastePosting] = useState(initial.posting !== '')
 
   const [status, setStatus] = useState<'idle' | 'reading-posting' | 'starting'>('idle')
   const [failed, setFailed] = useState(false)
 
   const source = classifyPostingUrl(url.trim())
-  const urlIsReadable = source.kind === 'supported' || source.kind === 'unknown'
-  const showPosting = pastePosting || source.kind === 'unsupported'
-  const hasPosting = showPosting ? posting.trim() !== '' : urlIsReadable
-  const ready = resume.trim() !== '' && hasPosting && !readingPdf && status === 'idle'
+  const urlError = checkPostingUrl(url.trim())
+  const resumeTextError = checkResumeText(resume)
+  const postingTextError = pastePosting ? checkPostingText(posting) : null
+  const hasPosting = pastePosting ? posting.trim() !== '' && !postingTextError : url.trim() !== '' && !urlError
+  const ready = resume.trim() !== '' && !resumeTextError && hasPosting && !readingPdf && status === 'idle'
+
+  // 모달이 화면에서 사라진 뒤에 옮겨야 브라우저의 포커스 복원과 겹치지 않는다.
+  useEffect(() => {
+    if (notice || focusAfterNotice.current === undefined) return
+    const target = focusAfterNotice.current ?? postingInput.current
+    focusAfterNotice.current = undefined
+    target?.focus()
+  }, [notice])
 
   async function attachPdf(event: ChangeEvent<HTMLInputElement>) {
     const file = event.target.files?.[0]
     event.target.value = ''
     if (!file) return
-    setReadingPdf(true)
     setResumeError(null)
     setPdfName(null)
+    const sizeError = checkPdfSize(file.size)
+    if (sizeError) {
+      setResumeError(sizeError)
+      setPasteResume(true)
+      return
+    }
+    setReadingPdf(true)
     try {
       const text = await readResumePdf(file)
       if (text.trim().length < MIN_RESUME_LENGTH) {
@@ -51,8 +71,8 @@ export function Start({ initial, onStarted }: { initial: Inputs; onStarted: (run
       setResume(text)
       setPdfName(file.name)
       setPasteResume(false)
-    } catch {
-      setResumeError('PDF를 읽지 못했어요. 내용을 붙여 넣어 주세요.')
+    } catch (error) {
+      setResumeError(pdfErrorMessage(error))
       setPasteResume(true)
     } finally {
       setReadingPdf(false)
@@ -64,22 +84,36 @@ export function Start({ initial, onStarted }: { initial: Inputs; onStarted: (run
       const response = await fetch(`/api/posting?url=${encodeURIComponent(url.trim())}`)
       const result = (await response.json()) as { ok: true; text: string } | { ok: false; reason: string }
       if (result.ok) return result.text
-      setPostingError(POSTING_ERRORS[result.reason])
+      setNotice(describePostingFailure(source, result.reason))
     } catch {
-      setPostingError(POSTING_ERRORS.fetch_failed)
+      setNotice(describePostingFailure(source, 'fetch_failed'))
     }
-    setPastePosting(true)
     return null
+  }
+
+  function choosePaste() {
+    setNotice(null)
+    setPastePosting(true)
+    focusAfterNotice.current = null
+  }
+
+  function chooseOtherLink() {
+    setNotice(null)
+    setUrl('')
+    focusAfterNotice.current = urlInput.current
   }
 
   async function submit(event: FormEvent) {
     event.preventDefault()
     if (!ready) return
     setFailed(false)
-    setPostingError(null)
 
     let postingText = posting
-    if (!showPosting) {
+    if (!pastePosting) {
+      if (source.kind === 'unsupported') {
+        setNotice(describePostingFailure(source))
+        return
+      }
       setStatus('reading-posting')
       const text = await readPostingLink()
       if (text === null) {
@@ -125,6 +159,11 @@ export function Start({ initial, onStarted }: { initial: Inputs; onStarted: (run
               {resumeError}
             </p>
           ) : null}
+          {resumeTextError ? (
+            <p className="error" role="alert">
+              {resumeTextError}
+            </p>
+          ) : null}
           {pasteResume ? (
             <textarea
               id="resume"
@@ -140,14 +179,12 @@ export function Start({ initial, onStarted }: { initial: Inputs; onStarted: (run
           <label htmlFor="posting-url">가고 싶은 공고</label>
           <input
             id="posting-url"
+            ref={urlInput}
             type="url"
             inputMode="url"
             placeholder="https://careers.daangn.com/jobs/role/..."
             value={url}
-            onChange={(event) => {
-              setUrl(event.target.value)
-              setPostingError(null)
-            }}
+            onChange={(event) => setUrl(event.target.value)}
           />
           {source.kind === 'supported' ? <span className="small">{source.name} 공고는 링크로 읽을 수 있어요.</span> : null}
           {source.kind === 'unknown' ? (
@@ -155,12 +192,12 @@ export function Start({ initial, onStarted }: { initial: Inputs; onStarted: (run
           ) : null}
           {source.kind === 'unsupported' ? (
             <p className="error" role="status">
-              {source.name} 공고는 링크로 읽지 못해요. 공고 본문을 아래에 붙여 넣어 주세요.
+              {source.name} 공고는 링크로 읽지 못해요. 공고 본문을 붙여 넣어 주세요.
             </p>
           ) : null}
-          {postingError ? (
+          {urlError ? (
             <p className="error" role="alert">
-              {postingError}
+              {urlError}
             </p>
           ) : null}
           <dl className="sources">
@@ -169,9 +206,10 @@ export function Start({ initial, onStarted }: { initial: Inputs; onStarted: (run
             <dt>붙여 넣어 주세요</dt>
             <dd>{UNSUPPORTED.map(({ name }) => name).join(', ')}</dd>
           </dl>
-          {showPosting ? (
+          {pastePosting ? (
             <textarea
               id="posting"
+              ref={postingInput}
               aria-label="공고 본문"
               rows={8}
               placeholder="공고 본문을 붙여 넣어 주세요."
@@ -183,6 +221,11 @@ export function Start({ initial, onStarted }: { initial: Inputs; onStarted: (run
               링크 없이 본문 붙여 넣기
             </button>
           )}
+          {postingTextError ? (
+            <p className="error" role="alert">
+              {postingTextError}
+            </p>
+          ) : null}
         </div>
         {failed ? (
           <p className="error" role="alert">
@@ -195,6 +238,9 @@ export function Start({ initial, onStarted }: { initial: Inputs; onStarted: (run
           </button>
         </div>
       </form>
+      {notice ? (
+        <PostingFailedModal notice={notice} onPaste={choosePaste} onOtherLink={chooseOtherLink} onClose={() => setNotice(null)} />
+      ) : null}
     </>
   )
 }

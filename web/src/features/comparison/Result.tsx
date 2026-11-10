@@ -1,7 +1,8 @@
 import { useState } from 'react'
-import type { Gap, Verdict } from '../../shared/types.ts'
+import { directionsFailure } from '../../shared/failure-reasons.ts'
+import type { DirectionsRun, Gap, Verdict } from '../../shared/types.ts'
 import { Annotation } from './Annotation.tsx'
-import { annotatePosting, gapsFromRows, type EditedRow } from './comparison.ts'
+import { annotatePosting, directionsWillReset, gapsFromRows, type EditedRow } from './comparison.ts'
 import { VERDICTS } from './verdicts.ts'
 
 export function Result({
@@ -9,25 +10,29 @@ export function Result({
   rows,
   onVerdict,
   onNext,
+  savedDirections,
   onRestart,
 }: {
   posting: string
   rows: EditedRow[]
   onVerdict: (index: number, verdict: Verdict) => void
   onNext: (gaps: Gap[]) => Promise<void>
+  savedDirections: DirectionsRun | undefined
   onRestart: () => void
 }) {
   const [opening, setOpening] = useState(false)
-  const [openFailed, setOpenFailed] = useState(false)
+  const [failures, setFailures] = useState(0)
+  const [failure, setFailure] = useState<ReturnType<typeof directionsFailure> | null>(null)
   const gaps = gapsFromRows(rows)
 
   async function next() {
     setOpening(true)
-    setOpenFailed(false)
+    setFailure(null)
     try {
       await onNext(gaps)
-    } catch {
-      setOpenFailed(true)
+    } catch (error) {
+      setFailures(failures + 1)
+      setFailure(directionsFailure(error, failures + 1))
       setOpening(false)
     }
   }
@@ -67,15 +72,18 @@ export function Result({
           </div>
         ) : null}
       </article>
-      {openFailed ? (
+      {failure ? (
         <p className="error" role="alert">
-          채울 방법을 정리하지 못했어요. 다시 눌러 주세요.
+          {failure.message}
         </p>
+      ) : null}
+      {directionsWillReset(savedDirections, gaps) ? (
+        <p className="small">판단을 바꿔서, 다음으로를 누르면 고른 방향이 사라지고 채울 방법을 새로 제안받아요.</p>
       ) : null}
       {gaps.length === 0 ? <p className="lead-line">부족한 요건이 없어요. 바로 지원해 봐도 좋아요.</p> : null}
       <div className="actions-row">
         {gaps.length > 0 ? (
-          <button className="btn" type="button" disabled={opening} onClick={next}>
+          <button className="btn" type="button" disabled={opening || failure?.canRetry === false} onClick={next}>
             {opening ? '채울 방법을 정리하는 중' : '다음으로'}
           </button>
         ) : null}

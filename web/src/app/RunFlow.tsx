@@ -1,6 +1,6 @@
 import { useFlueAgent } from '@flue/react'
 import { Comparison } from '../features/comparison/Comparison.tsx'
-import { readComparison } from '../features/comparison/comparison.ts'
+import { readComparison, sameGaps } from '../features/comparison/comparison.ts'
 import { DirectionPicker } from '../features/directions/DirectionPicker.tsx'
 import { fetchDirections } from '../features/directions/fetch-directions.ts'
 import { DEFAULT_WEEKLY_HOURS } from '../features/week-plan/week-plan.ts'
@@ -20,7 +20,7 @@ export function RunFlow({
   const view = readComparison(agent.messages, agent.settlements, agent.status)
 
   async function openDirections(gaps: Gap[]) {
-    if (run.directions && JSON.stringify(run.directions.gaps) === JSON.stringify(gaps)) {
+    if (run.directions && sameGaps(run.directions.gaps, gaps)) {
       onChange({ ...run, stage: 'directions' })
       return
     }
