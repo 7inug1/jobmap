@@ -25,7 +25,8 @@ export function SentenceFlow({
   const items = state.items
   const [phase, setPhase] = useState<Phase>('zoom')
   const [index, setIndex] = useState(0)
-  const [zoomed, setZoomed] = useState(false)
+  // 확대가 끝나면 자동으로 넘어갈 화면. 처음에는 문장 확인이고, 최종 계획에서 위치를 다시 볼 때는 최종 계획으로 돌아온다.
+  const [afterZoom, setAfterZoom] = useState<Phase>('cards')
 
   const pages = resumePages(run.resume)
   const placed = placeSentences(pages, items)
@@ -69,16 +70,12 @@ export function SentenceFlow({
           added={Math.max(1, addedAtTarget(placed))}
           done={0}
           note={target ? `${target.page + 1}쪽에 문장 ${items.length}개가 들어가요` : `문장 ${items.length}개를 이력서에 더해요`}
-          onFinished={() => setZoomed(true)}
+          onFinished={() => setPhase(afterZoom)}
         />
+        <p className="small">확대가 끝나면 {afterZoom === 'cards' ? '문장 확인' : '최종 계획'}으로 자동으로 넘어가요.</p>
         <div className="actions-row">
-          {zoomed ? (
-            <button className="btn" type="button" onClick={() => setPhase('cards')}>
-              문장을 하나씩 확인할게요
-            </button>
-          ) : null}
-          <button className="link-button" type="button" onClick={() => setPhase('cards')}>
-            확대 장면을 건너뛸게요
+          <button className="btn" type="button" onClick={() => setPhase(afterZoom)}>
+            {afterZoom === 'cards' ? '바로 문장을 확인할게요' : '바로 최종 계획으로 돌아갈게요'}
           </button>
         </div>
       </>
@@ -145,7 +142,7 @@ export function SentenceFlow({
           className="btn-line"
           type="button"
           onClick={() => {
-            setZoomed(false)
+            setAfterZoom('final')
             setPhase('zoom')
           }}
         >
@@ -160,7 +157,7 @@ export function SentenceFlow({
             <article className="sent-card" key={item.key}>
               <div className="sent-top">
                 <b>{item.label}</b>
-                <span className="small">약 {item.hours}시간</span>
+                <span className="small">최소 {item.hours}시간</span>
               </div>
               <ul className="rule-list">
                 {item.steps.map((step) => (
@@ -275,7 +272,7 @@ function ConfirmCard({
         )}
       </div>
       <div className="to-do">
-        <h4>이 문장을 쓰려면, 약 {item.hours}시간</h4>
+        <h4>이 문장을 쓰려면, 최소 {item.hours}시간</h4>
         <ul className="edit-steps">
           {item.steps.map((step) => (
             <li key={step}>

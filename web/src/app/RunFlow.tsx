@@ -219,7 +219,6 @@ export function RunFlow({ run, step }: { run: Run; step: Step }) {
         onLoadMore={loadMoreDirections}
         moreFailure={moreFailure}
         picks={saved.picks}
-        weeklyHours={run.weeklyHours ?? DEFAULT_WEEKLY_HOURS}
         onPicks={(picks) => onChange({ ...run, directions: { ...saved, picks } })}
         onConfirm={confirmDirections}
         confirmFailure={confirmFailure}

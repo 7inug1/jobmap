@@ -42,7 +42,7 @@ export function WeekPlan({
   )
 
   const weekRow = (item: PlanItem) => {
-    const progress = item.hours > item.weekHours! ? ` 전체 ${item.hours}시간 중 ${item.doneHours}시간을 했어요.` : ''
+    const progress = item.hours > item.weekHours! ? ` 최소 ${item.hours}시간 중 ${item.doneHours}시간을 했어요.` : ''
     return (
       <li className="task" key={item.key}>
         <input
@@ -59,7 +59,7 @@ export function WeekPlan({
   const laterRow = (item: PlanItem) => (
     <li className="task" key={item.key}>
       <span aria-hidden="true" />
-      {body(item, `남은 시간은 ${item.leftHours}시간이에요.`)}
+      {body(item, `남은 최소 시간은 ${item.leftHours}시간이에요.`)}
     </li>
   )
 
@@ -71,7 +71,7 @@ export function WeekPlan({
         checked
         onChange={() => onCompletions(undoLastCompletion(completions, task.key))}
       />
-      {body(task, `약 ${task.hours}시간짜리 ${laneName(task)}였어요.`)}
+      {body(task, `최소 ${task.hours}시간짜리 ${laneName(task)}였어요.`)}
     </li>
   )
 
@@ -80,7 +80,7 @@ export function WeekPlan({
       <div className="head">
         <h1>{finished ? '고른 일을 모두 끝냈어요' : '이번 주에는 이것만 하면 돼요'}</h1>
         <span className="lead-line">
-          {finished ? '수고했어요. 이제 지원해 봐도 좋아요.' : `약 ${hoursThisWeek}시간이에요. 이 속도면 ${weeksLeft}주 뒤에 고른 일을 다 끝내요.`}
+          {finished ? '수고했어요. 이제 지원해 봐도 좋아요.' : `이번 주 분량은 ${hoursThisWeek}시간이에요. 방법마다 가장 적게 잡은 시간으로 계산하면 ${weeksLeft}주 뒤에 고른 일을 다 끝낼 수 있어요.`}
         </span>
       </div>
       <label className="hours-field">

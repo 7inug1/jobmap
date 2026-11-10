@@ -4,6 +4,8 @@ type Target = { page: number; line: number } | null
 
 const ZOOM_AFTER_MS = 1800
 const ZOOM_TRANSITION_MS = 2400
+// 확대가 끝난 뒤 확대된 모습을 볼 시간. 이 시간이 지나면 다음 화면으로 자동으로 넘어간다.
+const HOLD_AFTER_ZOOM_MS = 1500
 
 const barWidth = (text: string) => Math.max(34, Math.min(96, 24 + text.length * 1.6))
 
@@ -45,7 +47,7 @@ export function ZoomStage({ pages, target, added, done, note, onFinished }: {
       if (noteText.current) noteText.current.textContent = latest.current.note
     }
     const timers = [setTimeout(zoom, reduce ? 0 : ZOOM_AFTER_MS)]
-    timers.push(setTimeout(() => latest.current.onFinished?.(), reduce ? 600 : ZOOM_AFTER_MS + ZOOM_TRANSITION_MS + 400))
+    timers.push(setTimeout(() => latest.current.onFinished?.(), reduce ? 600 : ZOOM_AFTER_MS + ZOOM_TRANSITION_MS + HOLD_AFTER_ZOOM_MS))
     return () => timers.forEach(clearTimeout)
   }, [])
 

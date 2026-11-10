@@ -1,6 +1,6 @@
 import { pickKey } from '../../shared/pick-key.ts'
 import type { Direction, DirectionOption, Gap } from '../../shared/types.ts'
-import { FIRST_BATCH, recommendedPicks, summarizePicks } from './directions.ts'
+import { FIRST_BATCH, recommendedPicks } from './directions.ts'
 
 export function DirectionPicker({
   directions,
@@ -11,7 +11,6 @@ export function DirectionPicker({
   onLoadMore,
   moreFailure,
   picks,
-  weeklyHours,
   onPicks,
   onConfirm,
   confirmFailure,
@@ -25,13 +24,11 @@ export function DirectionPicker({
   onLoadMore: () => void
   moreFailure: { message: string; canRetry: boolean } | null
   picks: string[]
-  weeklyHours: number
   onPicks: (picks: string[]) => void
   onConfirm: () => void
   confirmFailure: { message: string; canRetry: boolean } | null
   onBack: () => void
 }) {
-  const { studyHours, projectHours, weeks } = summarizePicks(directions, picks, weeklyHours)
   const toggle = (key: string) => onPicks(picks.includes(key) ? picks.filter((pick) => pick !== key) : [...picks, key])
   const basket = (lane: DirectionOption['lane']) =>
     directions.flatMap(({ gapNumber, options }) =>
@@ -79,7 +76,7 @@ export function DirectionPicker({
                   </span>
                   <span className="small">{option.description}</span>
                   <span className="small">
-                    약 {option.hours}시간 걸리는 {option.lane === 'study' ? '공부' : '프로젝트'}예요.
+                    {option.lane === 'study' ? '지식으로 남는 공부예요.' : '이력서에 남는 프로젝트예요.'}
                   </span>
                 </button>
               )
@@ -134,7 +131,7 @@ export function DirectionPicker({
       ) : null}
       <p className="lead-line">
         {picks.length > 0
-          ? `이력서 ${projectHours}시간, 공부 ${studyHours}시간이에요. 일주일 ${weeklyHours}시간이면 약 ${weeks}주 걸려요.`
+          ? `방법 ${picks.length}개를 골랐어요.`
           : '고르지 않은 항목은 이번에 하지 않아요.'}
       </p>
       {confirmFailure ? (

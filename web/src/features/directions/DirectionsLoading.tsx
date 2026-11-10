@@ -23,7 +23,7 @@ export function DirectionsLoading({ batch, total }: { batch: number; total: numb
             state: 'done',
           },
           { label: 'AI가 요건마다 공부와 프로젝트 방법을 2~3개씩 쓰고 있어요.', state: 'on' },
-          { label: '방법마다 걸리는 시간과 형식이 맞는지 확인할게요.', state: 'wait' },
+          { label: '방법의 형식이 맞는지 확인할게요.', state: 'wait' },
         ]}
       />
     </>

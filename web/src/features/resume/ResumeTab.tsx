@@ -61,7 +61,7 @@ export function ResumeTab({ run, onChange, planHref }: { run: Run; onChange: (ru
             <article className={`sent-card${item.done ? ' filled' : ''}`} key={item.key}>
               <div className="sent-top">
                 <b>{item.label}</b>
-                <span className="small">약 {item.hours}시간</span>
+                <span className="small">최소 {item.hours}시간</span>
               </div>
               <ul className="steps">
                 {item.steps.map((step) => {

@@ -66,12 +66,13 @@ describe('checkDirections', () => {
 		expect(result.ok ? result.directions.map((direction) => direction.gapNumber) : []).toEqual([1, 2]);
 	});
 
-	it('시간이 정수가 아니거나 범위를 벗어나면 가장 가까운 값으로 고친다', () => {
-		const hoursOf = (hours: number) => {
-			const result = checkDirections({ directions: [valid.directions[0], { gapNumber: 2, options: [{ ...study, hours }] }] }, gaps);
+	it('시간은 정수로 맞추고 최소 시간 상한(공부 6시간, 프로젝트 12시간)을 넘으면 상한으로 줄인다', () => {
+		const hoursOf = (option: typeof study, hours: number) => {
+			const result = checkDirections({ directions: [valid.directions[0], { gapNumber: 2, options: [{ ...option, hours }] }] }, gaps);
 			return result.ok ? result.directions[1]!.options[0]!.hours : null;
 		};
-		expect([0, -1, 1.5, 2.4, 41, 400].map(hoursOf)).toEqual([1, 1, 2, 2, 40, 40]);
+		expect([0, -1, 1.5, 2.4, 7, 40].map((hours) => hoursOf(study, hours))).toEqual([1, 1, 2, 2, 6, 6]);
+		expect([0, 2.4, 11.6, 13, 40].map((hours) => hoursOf(project, hours))).toEqual([1, 2, 12, 12, 12]);
 	});
 
 	it('시간이 숫자가 아니면 형식 문제다', () => {
