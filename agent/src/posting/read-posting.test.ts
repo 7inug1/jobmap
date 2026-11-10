@@ -1,4 +1,4 @@
-import { describe, expect, it } from 'vitest';
+import { describe, expect, it, vi } from 'vitest';
 import { extractText, isAllowedUrl, readPosting } from './read-posting.ts';
 
 const LONG = '프론트엔드 개발자의 자격 요건을 확인해 주세요. '.repeat(30);
@@ -224,3 +224,32 @@ describe('readPosting', () => {
 		expect(result).toEqual({ ok: false, reason: 'no_text' });
 	});
 });
+
+describe('일시적인 접속 실패 재시도', () => {
+	const ok = () => new Response(`<main><p>${LONG}</p></main>`, { headers: { 'content-type': 'text/html; charset=utf-8' } });
+
+	it('네트워크 오류가 한 번 나면 다시 시도해 읽는다', async () => {
+		const fetcher = vi.fn().mockRejectedValueOnce(new Error('network')).mockResolvedValue(ok());
+		expect(await readPosting('https://example.com/job', fetcher)).toMatchObject({ ok: true });
+		expect(fetcher).toHaveBeenCalledTimes(2);
+	});
+
+	it.each([429, 500, 502, 503])('%i 응답이 한 번 나면 다시 시도해 읽는다', async (status) => {
+		const fetcher = vi.fn().mockResolvedValueOnce(new Response('busy', { status })).mockResolvedValue(ok());
+		expect(await readPosting('https://example.com/job', fetcher)).toMatchObject({ ok: true });
+		expect(fetcher).toHaveBeenCalledTimes(2);
+	});
+
+	it('두 번 다 실패하면 실패로 끝낸다', async () => {
+		const fetcher = vi.fn().mockRejectedValue(new Error('network'));
+		expect(await readPosting('https://example.com/job', fetcher)).toEqual({ ok: false, reason: 'fetch_failed' });
+		expect(fetcher).toHaveBeenCalledTimes(2);
+	});
+
+	it('404처럼 다시 해도 소용없는 응답은 한 번만 시도한다', async () => {
+		const fetcher = vi.fn().mockResolvedValue(new Response('none', { status: 404 }));
+		expect(await readPosting('https://example.com/job', fetcher)).toEqual({ ok: false, reason: 'fetch_failed' });
+		expect(fetcher).toHaveBeenCalledTimes(1);
+	});
+});
+

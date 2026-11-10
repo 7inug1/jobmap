@@ -142,6 +142,21 @@ async function fetchChecked(raw: string, fetcher: Fetcher): Promise<Response | '
 	return 'too_many_redirects';
 }
 
+const RETRY_STATUSES = new Set([429, 500, 502, 503, 504]);
+
+/** 사이트가 잠깐 막히거나 응답하지 않는 경우를 위해 한 번 더 시도한다. 404처럼 다시 해도 같은 응답은 바로 돌려준다. */
+async function fetchWithRetry(raw: string, fetcher: Fetcher) {
+	let first: Awaited<ReturnType<typeof fetchChecked>> | undefined;
+	try {
+		first = await fetchChecked(raw, fetcher);
+	} catch (error) {
+		console.warn('posting_fetch_retry', { reason: 'error', message: String(error) });
+	}
+	if (first !== undefined && !(typeof first !== 'string' && RETRY_STATUSES.has(first.status))) return first;
+	if (first !== undefined && typeof first !== 'string') console.warn('posting_fetch_retry', { reason: 'status', status: first.status });
+	return fetchChecked(raw, fetcher);
+}
+
 /** 크기 제한까지만 읽는다. 넘으면 null을 돌려준다. */
 async function readLimited(response: Response): Promise<Uint8Array | null> {
 	if (!response.body) return new Uint8Array();
@@ -175,7 +190,7 @@ export async function readPosting(
 
 	let html: string;
 	try {
-		const response = await fetchChecked(raw, fetcher);
+		const response = await fetchWithRetry(raw, fetcher);
 		if (response === 'invalid_url') return { ok: false, reason: 'invalid_url' };
 		if (response === 'too_many_redirects' || !response.ok) return { ok: false, reason: 'fetch_failed' };
 		const contentType = response.headers.get('content-type') ?? '';

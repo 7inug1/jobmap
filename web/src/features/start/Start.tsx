@@ -1,5 +1,6 @@
 import { useEffect, useRef, useState, type ChangeEvent, type DragEvent, type FormEvent } from 'react'
 import { DAILY_LIMIT_DETAIL, isDailyLimit } from '../../shared/failure-reasons.ts'
+import { ProgressSteps, type Step } from '../../shared/ProgressSteps.tsx'
 import { startRun } from '../../shared/start-run.ts'
 import type { Inputs, Run } from '../../shared/types.ts'
 import {
@@ -152,6 +153,28 @@ export function Start({ initial, onStarted }: { initial: Inputs; onStarted: (run
       </p>
     ) : null
 
+  if (status !== 'idle') {
+    const steps: Step[] = [
+      { label: `이력서에서 글자 ${resume.trim().length.toLocaleString('ko-KR')}자를 읽고 길이를 확인했어요.`, state: 'done' },
+      pastePosting
+        ? { label: `붙여 넣은 공고 본문 ${posting.trim().length.toLocaleString('ko-KR')}자를 확인했어요.`, state: 'done' }
+        : status === 'reading-posting'
+          ? { label: '공고 링크를 열고 지원 요건이 들어 있는지 확인하고 있어요.', state: 'on' }
+          : { label: '공고 본문을 읽고 지원 요건이 들어 있는 것을 확인했어요.', state: 'done' },
+      status === 'starting'
+        ? { label: 'AI에게 비교를 맡기고 있어요.', state: 'on' }
+        : { label: 'AI에게 비교를 맡길게요.', state: 'wait' },
+    ]
+    return (
+      <>
+        <div className="head">
+          <h1>이력서와 공고를 비교하고 있어요</h1>
+        </div>
+        <ProgressSteps steps={steps} />
+      </>
+    )
+  }
+
   return (
     <>
       <div className="start">
@@ -282,7 +305,7 @@ export function Start({ initial, onStarted }: { initial: Inputs; onStarted: (run
         {errorLine(startError)}
         <div className="submit-row">
           <button className="btn btn-wide" type="submit" disabled={!ready}>
-            {status === 'reading-posting' ? '공고를 읽고 있어요' : status === 'starting' ? '비교를 시작하고 있어요' : '내 이력과 비교해 볼게요'}
+            내 이력과 비교해 볼게요
           </button>
           <span className="small">
             {ready ? '비교가 끝나면 부족한 부분을 채울 방법을 보여 드려요.' : '두 가지를 모두 넣으면 비교를 시작할 수 있어요.'}

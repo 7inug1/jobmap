@@ -1,6 +1,7 @@
 import { useEffect, useState } from 'react'
 import type { Gap, Run, Verdict } from '../../shared/types.ts'
-import { applyEdits, type ComparisonView } from './comparison.ts'
+import { ProgressSteps, type Step } from '../../shared/ProgressSteps.tsx'
+import { applyEdits, requirementLabel, type ComparisonView } from './comparison.ts'
 import { Failed } from './Failed.tsx'
 import { Result } from './Result.tsx'
 import { VERDICTS } from './verdicts.ts'
@@ -40,8 +41,6 @@ export function Comparison({
   )
 }
 
-type StepState = 'done' | 'on' | 'wait'
-
 function Working({
   run,
   view,
@@ -61,9 +60,9 @@ function Working({
   }, [])
 
   const { rows, retries, answered } = view
-  const steps: { label: string; state: StepState }[] = [
+  const steps: Step[] = [
     { label: `이력서에서 글자 ${run.resume.length.toLocaleString('ko-KR')}자를 읽었어요.`, state: 'done' },
-    { label: `공고 본문 ${run.posting.length.toLocaleString('ko-KR')}자를 읽었어요.`, state: 'done' },
+    { label: `공고 본문 ${run.posting.length.toLocaleString('ko-KR')}자를 읽고 지원 요건이 들어 있는 것을 확인했어요.`, state: 'done' },
   ]
   if (retries > 0) {
     steps.push({ label: `근거가 원문과 다른 줄이 있어서 AI에게 다시 쓰게 했어요. (${retries}번째)`, state: 'done' })
@@ -86,16 +85,8 @@ function Working({
         <h1>이력서와 공고를 비교하고 있어요</h1>
         <span className="lead-line">시작한 지 {seconds}초 지났어요.</span>
       </div>
-      <ol className="work-steps" role="status" aria-live="polite">
-        {steps.map(({ label, state }) => (
-          <li className={`work-step ${state}`} key={label}>
-            <span className="icon" aria-hidden="true">
-              {state === 'done' ? '✓' : state === 'on' ? <span className="dot" /> : null}
-            </span>
-            <span>{label}</span>
-          </li>
-        ))}
-      </ol>
+      {/* 앞의 두 단계(이력서, 공고)는 입력 화면의 진행 표시에서 이미 보여 줬다. */}
+      <ProgressSteps steps={steps} startRevealed={2} />
       {rows.length > 0 ? (
         <section className="draft-rows" aria-label="지금까지 비교한 요건">
           <p className="small">근거를 확인하기 전의 판단이에요. 확인이 끝나면 바뀔 수 있어요.</p>
@@ -105,7 +96,7 @@ function Working({
               return (
                 <li className="draft-row" key={index}>
                   <span className={`pill ${verdict.className}`}>{verdict.label}</span>
-                  <span>{row.requirement}</span>
+                  <span>{requirementLabel(row)}</span>
                 </li>
               )
             })}

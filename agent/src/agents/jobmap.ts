@@ -23,6 +23,7 @@ export function Jobmap() {
 규칙:
 - 공고에서 지원자에게 요구하거나 우대하는 항목(자격 요건, 우대 사항 등, 제목은 공고마다 다릅니다)마다 한 줄을 씁니다. 회사 소개, 주요 업무, 복지, 전형 절차는 넣지 않습니다.
 - 공고에 나온 순서대로 씁니다.
+- requirement는 사용자가 읽을 짧은 한국어 이름입니다. 예: "React 3년 이상", "SSR 서비스 경험". executionBalance처럼 영어 변수 이름으로 쓰지 않습니다.
 - postingQuote에는 공고 문장을, resumeQuote에는 이력서 문장을 글자 그대로 복사합니다. 요약하거나 고치지 않습니다. 영어 공고도 번역하지 않습니다.
 - verdict: 이력서가 요건을 분명히 보여 주면 met, 일부만 보여 주면 partial, 보여 주지 못하면 unmet입니다.
 - unmet이고 관련 문장이 없으면 resumeQuote는 null입니다.

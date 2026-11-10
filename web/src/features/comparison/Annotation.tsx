@@ -1,5 +1,5 @@
 import type { Verdict } from '../../shared/types.ts'
-import type { EditedRow } from './comparison.ts'
+import { requirementLabel, type EditedRow } from './comparison.ts'
 import { VERDICTS } from './verdicts.ts'
 
 export function Annotation({
@@ -18,8 +18,8 @@ export function Annotation({
   return (
     <div className={`anno a-${VERDICTS.find(({ value }) => value === row.verdict)?.className}`}>
       <div className="anno-top">
-        {showRequirement ? <b>{row.requirement}</b> : <span className="anno-quote">{quote}</span>}
-        <div className="verdicts" role="group" aria-label={`${row.requirement} 판단`}>
+        {showRequirement ? <b>{requirementLabel(row)}</b> : <span className="anno-quote">{quote}</span>}
+        <div className="verdicts" role="group" aria-label={`${requirementLabel(row)} 판단`}>
           {VERDICTS.map(({ value, label, className }) => (
             <button
               key={value}

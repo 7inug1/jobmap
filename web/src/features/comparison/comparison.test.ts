@@ -1,7 +1,7 @@
 import assert from 'node:assert/strict'
 import { describe, it } from 'node:test'
 import type { Row } from '../../shared/types.ts'
-import { annotatePosting, applyEdits, directionsWillReset, gapsFromRows, readComparison, repeatsLine, sameGaps } from './comparison.ts'
+import { annotatePosting, applyEdits, directionsWillReset, gapsFromRows, readComparison, repeatsLine, requirementLabel, sameGaps } from './comparison.ts'
 
 const row: Row = {
   requirement: 'React 3년',
@@ -136,6 +136,27 @@ describe('repeatsLine', () => {
 
   it('줄여 쓴 요건 이름은 그대로 보여 준다', () => {
     assert.equal(repeatsLine('- React로 3년 이상 만들어본 분', 'React 3년'), false)
+  })
+})
+
+describe('requirementLabel', () => {
+  it('사람이 읽는 이름은 그대로 쓴다', () => {
+    assert.equal(requirementLabel({ requirement: 'React 3년 이상', postingQuote: '긴 공고 문장' }), 'React 3년 이상')
+  })
+
+  it('대문자로 시작하는 기술 이름은 그대로 쓴다', () => {
+    assert.equal(requirementLabel({ requirement: 'TypeScript', postingQuote: '긴 공고 문장' }), 'TypeScript')
+  })
+
+  it('변수 이름처럼 쓴 이름은 공고 문장으로 바꾼다', () => {
+    for (const requirement of ['executionBalance', 'react_ssr', 'fullStackExperience']) {
+      assert.equal(requirementLabel({ requirement, postingQuote: '실행과 균형을 함께 챙기는 분' }), '실행과 균형을 함께 챙기는 분')
+    }
+  })
+
+  it('바꿔 쓴 공고 문장이 길면 줄여서 보여 준다', () => {
+    const label = requirementLabel({ requirement: 'executionBalance', postingQuote: '가'.repeat(80) })
+    assert.equal(label, `${'가'.repeat(40)}…`)
   })
 })
 

@@ -66,7 +66,7 @@ export function annotatePosting(posting: string, rows: readonly Pick<Row, 'posti
 }
 
 export function gapsFromRows(rows: readonly Row[]): Gap[] {
-  return rows.flatMap(({ requirement, verdict }) => (verdict === 'met' ? [] : [{ requirement, verdict }]))
+  return rows.flatMap((row) => (row.verdict === 'met' ? [] : [{ requirement: requirementLabel(row), verdict: row.verdict }]))
 }
 
 export function sameGaps(a: readonly Gap[], b: readonly Gap[]): boolean {
@@ -81,4 +81,15 @@ export function directionsWillReset(saved: DirectionsRun | undefined, gaps: read
 /** 요건 이름이 공고 줄을 그대로 옮긴 것이면 같은 문장을 두 번 보여 주지 않는다. */
 export function repeatsLine(line: string, requirement: string): boolean {
   return normalize(line).includes(normalize(requirement))
+}
+
+const MAX_LABEL_LENGTH = 40
+
+/** AI가 요건 이름을 `executionBalance`처럼 변수 이름으로 쓰면 공고 문장으로 바꿔 보여 준다. */
+export function requirementLabel({ requirement, postingQuote }: Pick<Row, 'requirement' | 'postingQuote'>): string {
+  const name = requirement.trim()
+  const looksLikeCode = !/\s/.test(name) && (name.includes('_') || /^[a-z]+[A-Z]/.test(name))
+  if (!looksLikeCode) return name
+  const quote = normalize(postingQuote)
+  return quote.length > MAX_LABEL_LENGTH ? `${quote.slice(0, MAX_LABEL_LENGTH)}…` : quote
 }
