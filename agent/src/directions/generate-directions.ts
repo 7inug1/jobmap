@@ -52,7 +52,15 @@ function keepOneRecommended(options: Option[]): Option[] {
 	return options.map((candidate, index) => ({ ...candidate, recommended: index === recommended }));
 }
 
-/** 모델 답을 검증한다. 요건 이름은 모델이 쓴 글이 아니라 원래 값을 붙인다. */
+function hasBrokenChar(option: Option): boolean {
+	return `${option.label}${option.description}`.includes(BROKEN_CHAR);
+}
+
+/**
+ * 모델 답을 검증한다. 요건 이름은 모델이 쓴 글이 아니라 원래 값을 붙인다.
+ * 고칠 수 있는 것은 거절하지 않고 고친다: 없는 번호와 중복 번호는 버리고, 시간은 1에서 40 사이 정수로 맞추고, 깨진 글자가 있는 방법은 빼고 나머지를 쓴다.
+ * 다시 써야 하는 것은 형식이 틀린 경우, 빠진 요건, 쓸 수 있는 방법이 없는 요건이다.
+ */
 export function checkDirections(
 	data: unknown,
 	gaps: readonly Gap[],
@@ -60,32 +68,33 @@ export function checkDirections(
 	const parsed = v.safeParse(answerSchema, data);
 	if (!parsed.success) return { ok: false, issues: ['답의 형식이 약속한 JSON과 다릅니다.'] };
 
+	const seen = new Set<number>();
+	const usable = parsed.output.directions.filter(({ gapNumber }) => {
+		if (!Number.isInteger(gapNumber) || gapNumber < 1 || gapNumber > gaps.length || seen.has(gapNumber)) return false;
+		seen.add(gapNumber);
+		return true;
+	});
+
 	const issues: string[] = [];
-	const numbers = parsed.output.directions.map(({ gapNumber }) => gapNumber);
-
-	numbers.forEach((number, index) => {
-		if (!Number.isInteger(number) || number < 1 || number > gaps.length) issues.push(`${number}번은 없는 요건입니다.`);
-		else if (numbers.indexOf(number) !== index) issues.push(`${number}번 요건을 두 번 적었습니다.`);
-	});
-	gaps.forEach((_, index) => {
-		if (!numbers.includes(index + 1)) issues.push(`${index + 1}번 요건이 빠졌습니다.`);
-	});
-
-	for (const { gapNumber, options } of parsed.output.directions) {
-		if (options.length === 0) issues.push(`${gapNumber}번 요건에 방법이 없습니다.`);
-		for (const { label, description, hours } of options) {
-			if (!Number.isInteger(hours) || hours < 1 || hours > MAX_OPTION_HOURS) {
-				issues.push(`${gapNumber}번 요건의 시간은 1에서 ${MAX_OPTION_HOURS} 사이 정수로 적으세요.`);
-			}
-			if (`${label}${description}`.includes(BROKEN_CHAR)) issues.push(`${gapNumber}번 요건에 깨진 글자가 있습니다.`);
+	const directions: Direction[] = [];
+	gaps.forEach((gap, index) => {
+		const gapNumber = index + 1;
+		const entry = usable.find((candidate) => candidate.gapNumber === gapNumber);
+		if (!entry || entry.options.length === 0) {
+			issues.push(`${gapNumber}번 요건이 빠졌거나 방법이 없습니다.`);
+			return;
 		}
-	}
-	if (issues.length > 0) return { ok: false, issues };
+		const options = entry.options
+			.filter((option) => !hasBrokenChar(option))
+			.map((option) => ({ ...option, hours: Math.min(MAX_OPTION_HOURS, Math.max(1, Math.round(option.hours))) }));
+		if (options.length === 0) {
+			issues.push(`${gapNumber}번 요건의 방법에 깨진 글자가 있습니다. 깨진 글자 없이 다시 쓰세요.`);
+			return;
+		}
+		directions.push({ ...gap, gapNumber, options: keepOneRecommended(options) });
+	});
 
-	const directions = parsed.output.directions
-		.toSorted((a, b) => a.gapNumber - b.gapNumber)
-		.map(({ gapNumber, options }) => ({ ...gaps[gapNumber - 1]!, gapNumber, options: keepOneRecommended(options) }));
-	return { ok: true, directions };
+	return issues.length > 0 ? { ok: false, issues } : { ok: true, directions };
 }
 
 function buildPrompt({ gaps, resume }: DirectionsRequest): string {
@@ -136,13 +145,16 @@ export async function generateDirections(ai: AiBinding, request: DirectionsReque
 		try {
 			text = contentOf(await ai.run(MODEL_ID, { messages, max_tokens: MAX_TOKENS } as never));
 		} catch (error) {
-			console.error('directions_model_error', error);
-			return { ok: false, reason: isQuotaError(error) ? 'quota' : 'model_failed' };
+			console.error('directions_model_error', { attempt: attempt + 1, error: String(error) });
+			// 하루 한도는 다시 불러도 소용없다. 그 밖의 오류(일시적인 용량 부족 등)는 남은 시도 안에서 다시 부른다.
+			if (isQuotaError(error)) return { ok: false, reason: 'quota' };
+			continue;
 		}
 
 		const result = checkDirections(parseJson(text), request.gaps);
 		if (result.ok) return result;
 
+		console.warn('directions_attempt_failed', { attempt: attempt + 1, issues: result.issues, length: text.length });
 		messages.push(
 			{ role: 'assistant', content: text },
 			{ role: 'user', content: `다음 문제를 고쳐 JSON 전체를 다시 답하세요.\n${result.issues.join('\n')}` },
