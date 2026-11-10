@@ -1,6 +1,7 @@
 import { useFlueAgent } from '@flue/react'
 import { createFlueClient } from '@flue/sdk'
 import { useEffect, useRef, useState } from 'react'
+import { useNavigate } from 'react-router'
 import { checkComparison, fixRequest } from '../features/comparison/check-comparison.ts'
 import { Comparison } from '../features/comparison/Comparison.tsx'
 import { readComparison, sameGaps, type ComparisonView } from '../features/comparison/comparison.ts'
@@ -12,6 +13,8 @@ import { DEFAULT_WEEKLY_HOURS } from '../features/week-plan/week-plan.ts'
 import { WeekPlan } from '../features/week-plan/WeekPlan.tsx'
 import { directionsFailure } from '../shared/failure-reasons.ts'
 import type { Completion, Gap, Run } from '../shared/types.ts'
+import { runPath, type Step } from './runs.ts'
+import { useRuns } from './runs-context.ts'
 
 /** 예전 기록의 끝낸 일은 전체 시간을 해낸 것으로 본다. 시간은 계산에서 일의 시간으로 줄어든다. */
 function completionsOf(run: Run): Completion[] {
@@ -21,15 +24,19 @@ function completionsOf(run: Run): Completion[] {
 // 근거가 틀렸을 때 AI에게 고쳐 달라고 보내는 최대 횟수. 예전 도구 방식의 재시도 횟수와 같다.
 const MAX_FIX_REQUESTS = 2
 
-export function RunFlow({
-  run,
-  onChange,
-  onRestart,
-}: {
-  run: Run
-  onChange: (run: Run) => void
-  onRestart: () => void
-}) {
+export function RunFlow({ run, step }: { run: Run; step: Step }) {
+  const { save: onChange, remove } = useRuns()
+  const navigate = useNavigate()
+  // 입력을 고치거나 다른 공고로 비교하러 처음 화면으로 갈 때, 앞에서 넣은 내용을 이어서 쓰게 한다.
+  const toStart = (keepPosting: boolean) => navigate('/', { state: { draft: { posting: keepPosting ? run.posting : '', resume: run.resume } } })
+  const onRestart = () => toStart(true)
+  const onAnother = () => toStart(false)
+  // 다시 시도하면 새 대화가 시작되므로 실패한 기록은 지우고 새 기록으로 옮겨 간다.
+  const onRetried = (next: Run) => {
+    onChange(next)
+    remove(run.id)
+    navigate(runPath(next.id), { replace: true })
+  }
   const agent = useFlueAgent({ url: `/agents/jobmap/${run.id}`, live: 'sse' })
   const streamed = readComparison(agent.messages, agent.settlements, agent.status)
   const [checkState, setCheckState] = useState<'idle' | 'checking' | 'failed'>('idle')
@@ -72,11 +79,12 @@ export function RunFlow({
   async function openDirections(gaps: Gap[]) {
     const ranked = rankGaps(gaps)
     if (run.directions && sameGaps(run.directions.gaps, ranked)) {
-      onChange({ ...run, stage: 'directions' })
+      navigate(runPath(run.id, 'directions'))
       return
     }
     const directions = await fetchDirections(nextBatch(ranked, 0), run.resume)
-    onChange({ ...run, stage: 'directions', directions: { gaps: ranked, directions, picks: [] } })
+    onChange({ ...run, directions: { gaps: ranked, directions, picks: [] } })
+    navigate(runPath(run.id, 'directions'))
   }
 
   async function loadMoreDirections() {
@@ -95,7 +103,7 @@ export function RunFlow({
     }
   }
 
-  if (run.stage === 'plan' && run.directions) {
+  if (step === 'plan' && run.directions) {
     return (
       <WeekPlan
         directions={run.directions.directions}
@@ -105,12 +113,12 @@ export function RunFlow({
         weeklyHours={run.weeklyHours ?? DEFAULT_WEEKLY_HOURS}
         onCompletions={(completions) => onChange({ ...run, completions, doneTasks: undefined })}
         onWeeklyHours={(weeklyHours) => onChange({ ...run, weeklyHours })}
-        onBack={() => onChange({ ...run, stage: 'directions' })}
-        onRestart={onRestart}
+        onBack={() => navigate(runPath(run.id, 'directions'))}
+        onRestart={onAnother}
       />
     )
   }
-  if (run.stage === 'directions' && run.directions) {
+  if (step === 'directions' && run.directions) {
     const saved = run.directions
     if (loadingMore) {
       return <DirectionsLoading batch={nextBatch(saved.gaps, saved.directions.length).length} total={saved.gaps.length - saved.directions.length} />
@@ -124,8 +132,8 @@ export function RunFlow({
         picks={saved.picks}
         weeklyHours={run.weeklyHours ?? DEFAULT_WEEKLY_HOURS}
         onPicks={(picks) => onChange({ ...run, directions: { ...saved, picks } })}
-        onConfirm={() => onChange({ ...run, stage: 'plan' })}
-        onBack={() => onChange({ ...run, stage: undefined })}
+        onConfirm={() => navigate(runPath(run.id, 'plan'))}
+        onBack={() => navigate(runPath(run.id))}
       />
     )
   }
@@ -135,10 +143,11 @@ export function RunFlow({
       run={run}
       view={view}
       checking={checkState === 'checking'}
-      onChange={onChange}
+      onRetried={onRetried}
       onVerdict={(index, verdict) => onChange({ ...run, edits: { ...run.edits, [index]: verdict } })}
       onNext={openDirections}
       onRestart={onRestart}
+      onAnother={onAnother}
     />
   )
 }

@@ -1,6 +1,6 @@
 import assert from 'node:assert/strict'
 import { describe, it } from 'node:test'
-import { parseSavedRun } from './saved-run.ts'
+import { parseSavedRun, parseSavedRuns } from './saved-run.ts'
 
 const run = { id: 'a', posting: '공고', resume: '이력서', edits: { 0: 'met' } }
 const direction = {
@@ -68,3 +68,21 @@ describe('parseSavedRun', () => {
     assert.equal(parse({ ...run, doneTasks: [1] }), null)
   })
 })
+
+describe('parseSavedRuns', () => {
+  it('없거나 깨졌으면 빈 목록이다', () => {
+    assert.deepEqual(parseSavedRuns(null), [])
+    assert.deepEqual(parseSavedRuns('{'), [])
+    assert.deepEqual(parseSavedRuns('{"id":"a"}'), [])
+  })
+
+  it('정상 기록만 남기고 틀린 항목은 버린다', () => {
+    assert.deepEqual(parseSavedRuns(JSON.stringify([run, { id: 1 }, { ...run, id: 'b' }])).map(({ id }) => id), ['a', 'b'])
+  })
+
+  it('만든 시각을 복원한다', () => {
+    assert.equal(parseSavedRuns(JSON.stringify([{ ...run, createdAt: 123 }]))[0]!.createdAt, 123)
+    assert.deepEqual(parseSavedRuns(JSON.stringify([{ ...run, createdAt: 'x' }])), [])
+  })
+})
+

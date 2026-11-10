@@ -1,60 +1,65 @@
-import { useState } from 'react'
+import { BrowserRouter, Link, Navigate, NavLink, Route, Routes, useLocation, useNavigate } from 'react-router'
 import { Start } from '../features/start/Start.tsx'
-import type { Inputs, Run } from '../shared/types.ts'
-import { homeStage, tabsFor } from './navigation.ts'
-import { RunFlow } from './RunFlow.tsx'
-import { loadRun, saveRun } from './saved-run.ts'
+import type { Inputs } from '../shared/types.ts'
+import { History } from './History.tsx'
+import { RunPage } from './RunPage.tsx'
+import { runPath } from './runs.ts'
+import { RunsProvider } from './RunsProvider.tsx'
+import { useRuns } from './runs-context.ts'
 
-export default function App() {
-  const [run, setRun] = useState(loadRun)
-  const [draft, setDraft] = useState<Inputs>({ posting: '', resume: '' })
+function StartPage() {
+  const location = useLocation()
+  const navigate = useNavigate()
+  const { save } = useRuns()
+  // 다른 공고로 비교하거나 입력을 고칠 때 앞에서 넣은 내용을 이어서 쓴다.
+  const draft = (location.state as { draft?: Inputs } | null)?.draft ?? { posting: '', resume: '' }
 
-  function update(next: Run | null) {
-    saveRun(next)
-    setRun(next)
-  }
+  return (
+    <Start
+      key={location.key}
+      initial={draft}
+      onStarted={(run) => {
+        save(run)
+        navigate(runPath(run.id))
+      }}
+    />
+  )
+}
 
-  function restart(inputs: Inputs) {
-    setDraft(inputs)
-    update(null)
-  }
-
+function Layout() {
   return (
     <>
       <header className="top">
-        <button className="brand" type="button" onClick={() => run && update({ ...run, stage: homeStage(run) })}>
+        <Link className="brand" to="/">
           잡맵
-        </button>
-        {run ? (
-          <nav className="nav" aria-label="화면">
-            {tabsFor(run).map(({ label, stage }) => (
-              <button
-                key={label}
-                type="button"
-                aria-current={run.stage === stage ? 'page' : undefined}
-                onClick={() => update({ ...run, stage })}
-              >
-                {label}
-              </button>
-            ))}
-          </nav>
-        ) : null}
+        </Link>
+        <nav className="nav" aria-label="메뉴">
+          <NavLink to="/history">내 기록</NavLink>
+        </nav>
       </header>
       <main className="page">
-        {run ? (
-          <RunFlow key={run.id} run={run} onChange={update} onRestart={() => restart(run)} />
-        ) : (
-          <Start initial={draft} onStarted={update} />
-        )}
+        <Routes>
+          <Route path="/" element={<StartPage />} />
+          <Route path="/runs/:id" element={<RunPage step={undefined} />} />
+          <Route path="/runs/:id/directions" element={<RunPage step="directions" />} />
+          <Route path="/runs/:id/plan" element={<RunPage step="plan" />} />
+          <Route path="/history" element={<History />} />
+          <Route path="*" element={<Navigate to="/" replace />} />
+        </Routes>
       </main>
       <footer className="foot">
         <span>© 2026 잡맵</span>
-        {run ? (
-          <button className="link-button" type="button" onClick={() => restart(run)}>
-            이 준비를 지우고 처음부터 다시 할게요
-          </button>
-        ) : null}
       </footer>
     </>
+  )
+}
+
+export default function App() {
+  return (
+    <BrowserRouter>
+      <RunsProvider>
+        <Layout />
+      </RunsProvider>
+    </BrowserRouter>
   )
 }

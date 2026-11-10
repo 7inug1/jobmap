@@ -6,12 +6,12 @@ import type { Run } from '../../shared/types.ts'
 export function Failed({
   run,
   reason,
-  onChange,
+  onRetried,
   onRestart,
 }: {
   run: Run
   reason: FailureReason
-  onChange: (run: Run) => void
+  onRetried: (run: Run) => void
   onRestart: () => void
 }) {
   const [sending, setSending] = useState(false)
@@ -24,7 +24,7 @@ export function Failed({
     setSending(true)
     setSendError(null)
     try {
-      onChange({ ...(await startRun({ posting: run.posting, resume: run.resume })), retries: retries + 1 })
+      onRetried({ ...(await startRun({ posting: run.posting, resume: run.resume })), retries: retries + 1 })
     } catch (error) {
       setSendError(isDailyLimit(error) ? DAILY_LIMIT_DETAIL : '다시 시도하지 못했어요. 연결을 확인하고 한 번 더 눌러 주세요.')
       setSending(false)

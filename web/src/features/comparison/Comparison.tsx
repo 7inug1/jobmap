@@ -13,21 +13,23 @@ export function Comparison({
   run,
   view,
   checking,
-  onChange,
+  onRetried,
   onVerdict,
   onNext,
   onRestart,
+  onAnother,
 }: {
   run: Run
   view: ComparisonView
   checking: boolean
-  onChange: (run: Run) => void
+  onRetried: (run: Run) => void
   onVerdict: (index: number, verdict: Verdict) => void
   onNext: (gaps: Gap[]) => Promise<void>
   onRestart: () => void
+  onAnother: () => void
 }) {
   if (view.phase === 'working') return <Working run={run} view={view} checking={checking} onRestart={onRestart} />
-  if (view.phase === 'failed') return <Failed run={run} reason={view.reason} onChange={onChange} onRestart={onRestart} />
+  if (view.phase === 'failed') return <Failed run={run} reason={view.reason} onRetried={onRetried} onRestart={onRestart} />
 
   return (
     <Result
@@ -36,7 +38,7 @@ export function Comparison({
       onVerdict={onVerdict}
       onNext={onNext}
       savedDirections={run.directions}
-      onRestart={onRestart}
+      onRestart={onAnother}
     />
   )
 }

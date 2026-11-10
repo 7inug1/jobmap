@@ -28,7 +28,10 @@ export type DirectionsRun = { gaps: Gap[]; directions: Direction[]; picks: strin
 
 export type Run = Inputs & {
   id: string
+  /** 비교를 시작한 시각(ms). 예전 기록에는 없다. */
+  createdAt?: number
   edits: Record<number, Verdict>
+  /** 예전 저장 형식의 화면 단계. 이제는 주소가 대신한다. */
   stage?: 'directions' | 'plan'
   directions?: DirectionsRun
   weeklyHours?: number
