@@ -1,4 +1,5 @@
 import { useEffect, useRef, useState, type ChangeEvent, type FormEvent } from 'react'
+import { DAILY_LIMIT_DETAIL, isDailyLimit } from '../../shared/failure-reasons.ts'
 import { startRun } from '../../shared/start-run.ts'
 import type { Inputs, Run } from '../../shared/types.ts'
 import {
@@ -31,7 +32,7 @@ export function Start({ initial, onStarted }: { initial: Inputs; onStarted: (run
   const [pastePosting, setPastePosting] = useState(initial.posting !== '')
 
   const [status, setStatus] = useState<'idle' | 'reading-posting' | 'starting'>('idle')
-  const [failed, setFailed] = useState(false)
+  const [startError, setStartError] = useState<string | null>(null)
 
   const source = classifyPostingUrl(url.trim())
   const urlError = checkPostingUrl(url.trim())
@@ -106,7 +107,7 @@ export function Start({ initial, onStarted }: { initial: Inputs; onStarted: (run
   async function submit(event: FormEvent) {
     event.preventDefault()
     if (!ready) return
-    setFailed(false)
+    setStartError(null)
 
     let postingText = posting
     if (!pastePosting) {
@@ -126,8 +127,8 @@ export function Start({ initial, onStarted }: { initial: Inputs; onStarted: (run
     setStatus('starting')
     try {
       onStarted(await startRun({ posting: postingText, resume }))
-    } catch {
-      setFailed(true)
+    } catch (error) {
+      setStartError(isDailyLimit(error) ? DAILY_LIMIT_DETAIL : '비교를 시작하지 못했어요. 잠시 뒤 다시 시도해 주세요.')
       setStatus('idle')
     }
   }
@@ -227,9 +228,9 @@ export function Start({ initial, onStarted }: { initial: Inputs; onStarted: (run
             </p>
           ) : null}
         </div>
-        {failed ? (
+        {startError ? (
           <p className="error" role="alert">
-            비교를 시작하지 못했어요. 잠시 뒤 다시 시도해 주세요.
+            {startError}
           </p>
         ) : null}
         <div>

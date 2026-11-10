@@ -1,6 +1,6 @@
 import { useState } from 'react'
 import { startRun } from '../../shared/start-run.ts'
-import { canRetry, FAILURE_COPY, RETRIES_USED_UP, type FailureReason } from '../../shared/failure-reasons.ts'
+import { canRetry, DAILY_LIMIT_DETAIL, FAILURE_COPY, isDailyLimit, RETRIES_USED_UP, type FailureReason } from '../../shared/failure-reasons.ts'
 import type { Run } from '../../shared/types.ts'
 
 export function Failed({
@@ -15,18 +15,18 @@ export function Failed({
   onRestart: () => void
 }) {
   const [sending, setSending] = useState(false)
-  const [sendFailed, setSendFailed] = useState(false)
+  const [sendError, setSendError] = useState<string | null>(null)
   const retries = run.retries ?? 0
   const retryable = canRetry(reason, retries)
   const { title, detail } = FAILURE_COPY[reason]
 
   async function retry() {
     setSending(true)
-    setSendFailed(false)
+    setSendError(null)
     try {
       onChange({ ...(await startRun({ posting: run.posting, resume: run.resume })), retries: retries + 1 })
-    } catch {
-      setSendFailed(true)
+    } catch (error) {
+      setSendError(isDailyLimit(error) ? DAILY_LIMIT_DETAIL : '다시 시도하지 못했어요. 연결을 확인하고 한 번 더 눌러 주세요.')
       setSending(false)
     }
   }
@@ -38,9 +38,9 @@ export function Failed({
         <span className="lead-line">{detail}</span>
       </div>
       {!retryable && reason !== 'quota' ? <p className="lead-line">{RETRIES_USED_UP}</p> : null}
-      {sendFailed ? (
+      {sendError ? (
         <p className="error" role="alert">
-          다시 시도하지 못했어요. 연결을 확인하고 한 번 더 눌러 주세요.
+          {sendError}
         </p>
       ) : null}
       <div className="actions-row">

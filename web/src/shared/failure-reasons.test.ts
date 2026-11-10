@@ -1,6 +1,6 @@
 import assert from 'node:assert/strict'
 import { describe, it } from 'node:test'
-import { canRetry, directionsFailure, FAILURE_COPY, isQuotaError } from './failure-reasons.ts'
+import { canRetry, directionsFailure, FAILURE_COPY, isDailyLimit, isQuotaError } from './failure-reasons.ts'
 
 const quotaMessage = "4006: you have used up your daily free allocation of 10,000 neurons"
 
@@ -50,5 +50,19 @@ describe('directionsFailure', () => {
     const failure = directionsFailure(new Error('model_failed'), 3)
     assert.equal(failure.canRetry, false)
     assert.match(failure.message, /잠시 뒤/)
+  })
+})
+
+describe('isDailyLimit', () => {
+  it('서버의 하루 총량 초과 응답을 알아본다', () => {
+    assert.equal(isDailyLimit(Object.assign(new Error('x'), { status: 429 })), true)
+    assert.equal(isDailyLimit(new Error('daily_limit')), true)
+    assert.equal(isDailyLimit(new Error('boom')), false)
+  })
+
+  it('방향 제안이 하루 총량에 걸리면 다시 누를 수 없다', () => {
+    const failure = directionsFailure(new Error('daily_limit'), 1)
+    assert.equal(failure.canRetry, false)
+    assert.match(failure.message, /내일/)
   })
 })

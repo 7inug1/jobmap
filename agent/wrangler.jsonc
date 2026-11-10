@@ -16,5 +16,11 @@
 	// (Jobmap -> FlueJobmapAgent), and Cloudflare requires a migration entry
 	// for each one. Append a new tag when you add an agent:
 	// https://flueframework.com/docs/guide/cloudflare-target/#managing-migrations
-	"migrations": [{ "tag": "v1", "new_sqlite_classes": ["FlueJobmapAgent"] }]
+	// 서비스 전체 하루 총량을 세는 Durable Object (src/cloudflare.ts). 결제 후 비용 상한을 둔다.
+	"durable_objects": { "bindings": [{ "name": "DAILY_USAGE", "class_name": "DailyUsage" }] },
+	"vars": { "DAILY_COMPARE_LIMIT": 50, "DAILY_DIRECTIONS_LIMIT": 80 },
+	"migrations": [
+		{ "tag": "v1", "new_sqlite_classes": ["FlueJobmapAgent"] },
+		{ "tag": "v2", "new_sqlite_classes": ["DailyUsage"] }
+	]
 }
