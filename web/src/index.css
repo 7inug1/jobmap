@@ -39,7 +39,18 @@ h1, h3, p { margin: 0; }
 button { font: inherit; color: inherit; background: none; border: 0; cursor: pointer; }
 input, textarea { width: 100%; padding: 10px 12px; font: inherit; color: inherit; background: var(--bg); border: 1px solid var(--line); border-radius: 9px; resize: vertical; }
 
-.page { display: grid; gap: 24px; width: min(760px, 100%); margin-inline: auto; padding: 48px max(16px, 3vw); }
+.page { display: grid; gap: 24px; width: min(760px, 100%); margin-inline: auto; padding: 34px max(16px, 3vw) 48px; }
+
+/* 데모의 상단 바와 하단 영역 */
+.top { position: sticky; top: 0; z-index: 10; display: flex; flex-wrap: wrap; align-items: center; gap: 4px 12px; min-height: 58px; padding: 8px max(16px, 3vw); background: var(--bg); border-bottom: 1px solid var(--line); }
+.brand { font-size: 21px; font-weight: 800; letter-spacing: -.03em; }
+.nav { display: flex; flex-wrap: wrap; gap: 2px; }
+.nav button { padding: 5px 11px; border-radius: 7px; color: var(--mfg); font-weight: 500; }
+.nav button:hover { background: var(--hover); }
+.nav button[aria-current="page"] { background: var(--hover); color: var(--fg); font-weight: 700; }
+.foot { width: min(760px, 100%); margin-inline: auto; display: flex; flex-wrap: wrap; justify-content: space-between; gap: 6px 16px; padding: 22px max(16px, 3vw) 28px; border-top: 1px solid var(--line); font-size: 13px; color: var(--mfg); }
+.sticky-action { position: sticky; bottom: 0; z-index: 3; padding-block: 12px max(12px, env(safe-area-inset-bottom, 0px)); background: var(--bg); border-top: 1px solid var(--line); }
+@media (max-width: 480px) { .nav button { padding: 5px 7px; font-size: 14px; } }
 .start h1 { font-size: clamp(30px, 4.4vw, 42px); line-height: 1.25; font-weight: 800; letter-spacing: -.025em; text-wrap: balance; }
 .start .lead { margin-top: 10px; font-size: 17px; color: var(--mfg); }
 .form { display: grid; gap: 18px; padding: 22px; border: 1px solid var(--line); border-radius: 14px; }

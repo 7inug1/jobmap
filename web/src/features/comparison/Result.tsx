@@ -2,7 +2,7 @@ import { useState } from 'react'
 import { directionsFailure } from '../../shared/failure-reasons.ts'
 import type { DirectionsRun, Gap, Verdict } from '../../shared/types.ts'
 import { Annotation } from './Annotation.tsx'
-import { annotatePosting, directionsWillReset, gapsFromRows, type EditedRow } from './comparison.ts'
+import { annotatePosting, directionsWillReset, gapsFromRows, repeatsLine, type EditedRow } from './comparison.ts'
 import { VERDICTS } from './verdicts.ts'
 
 export function Result({
@@ -39,8 +39,13 @@ export function Result({
 
   const { lines, unplaced } = annotatePosting(posting, rows)
   const met = rows.filter((row) => row.verdict === 'met').length
-  const annotation = (index: number) => (
-    <Annotation key={index} row={rows[index]} onVerdict={(verdict) => onVerdict(index, verdict)} />
+  const annotation = (index: number, line?: string) => (
+    <Annotation
+      key={index}
+      row={rows[index]}
+      showRequirement={line === undefined || !repeatsLine(line, rows[index].requirement)}
+      onVerdict={(verdict) => onVerdict(index, verdict)}
+    />
   )
 
   return (
@@ -62,13 +67,13 @@ export function Result({
         {lines.map((line, index) => (
           <div className="posting-item" key={index}>
             <p>{line.text.replace(/^- /, '')}</p>
-            {line.rowIndexes.map(annotation)}
+            {line.rowIndexes.map((index) => annotation(index, line.text))}
           </div>
         ))}
         {unplaced.length > 0 ? (
           <div className="posting-item">
             <h3>그 외 요건</h3>
-            {unplaced.map(annotation)}
+            {unplaced.map((index) => annotation(index))}
           </div>
         ) : null}
       </article>
@@ -81,7 +86,7 @@ export function Result({
         <p className="small">판단을 바꿔서, 다음으로를 누르면 고른 방향이 사라지고 채울 방법을 새로 제안받아요.</p>
       ) : null}
       {gaps.length === 0 ? <p className="lead-line">부족한 요건이 없어요. 바로 지원해 봐도 좋아요.</p> : null}
-      <div className="actions-row">
+      <div className="actions-row sticky-action">
         {gaps.length > 0 ? (
           <button className="btn" type="button" disabled={opening || failure?.canRetry === false} onClick={next}>
             {opening ? '채울 방법을 정리하는 중' : '다음으로'}

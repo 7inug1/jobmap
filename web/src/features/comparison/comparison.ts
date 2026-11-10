@@ -73,3 +73,8 @@ export function sameGaps(a: readonly Gap[], b: readonly Gap[]): boolean {
 export function directionsWillReset(saved: DirectionsRun | undefined, gaps: readonly Gap[]): boolean {
   return saved !== undefined && saved.picks.length > 0 && !sameGaps(saved.gaps, gaps)
 }
+
+/** 요건 이름이 공고 줄을 그대로 옮긴 것이면 같은 문장을 두 번 보여 주지 않는다. */
+export function repeatsLine(line: string, requirement: string): boolean {
+  return normalize(line).includes(normalize(requirement))
+}

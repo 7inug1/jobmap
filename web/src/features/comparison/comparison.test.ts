@@ -1,7 +1,7 @@
 import assert from 'node:assert/strict'
 import { describe, it } from 'node:test'
 import type { Row } from '../../shared/types.ts'
-import { annotatePosting, applyEdits, directionsWillReset, gapsFromRows, readComparison, sameGaps } from './comparison.ts'
+import { annotatePosting, applyEdits, directionsWillReset, gapsFromRows, readComparison, repeatsLine, sameGaps } from './comparison.ts'
 
 const row: Row = {
   requirement: 'React 3년',
@@ -131,3 +131,14 @@ describe('directionsWillReset', () => {
     assert.equal(directionsWillReset({ ...saved, picks: [] }, changed), false)
   })
 })
+
+describe('repeatsLine', () => {
+  it('요건 이름이 공고 줄에 그대로 있으면 반복으로 본다', () => {
+    assert.equal(repeatsLine('- React로 3년 이상  만들어본 분', 'React로 3년 이상 만들어본 분'), true)
+  })
+
+  it('줄여 쓴 요건 이름은 그대로 보여 준다', () => {
+    assert.equal(repeatsLine('- React로 3년 이상 만들어본 분', 'React 3년'), false)
+  })
+})
+

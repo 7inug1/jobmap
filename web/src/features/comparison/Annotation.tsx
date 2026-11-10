@@ -2,14 +2,22 @@ import type { Verdict } from '../../shared/types.ts'
 import type { EditedRow } from './comparison.ts'
 import { VERDICTS } from './verdicts.ts'
 
-export function Annotation({ row, onVerdict }: { row: EditedRow; onVerdict: (verdict: Verdict) => void }) {
+export function Annotation({
+  row,
+  showRequirement,
+  onVerdict,
+}: {
+  row: EditedRow
+  showRequirement: boolean
+  onVerdict: (verdict: Verdict) => void
+}) {
   const edited = row.verdict !== row.aiVerdict
   const original = VERDICTS.find(({ value }) => value === row.aiVerdict)?.label
 
   return (
     <div className="anno">
       <div className="anno-top">
-        <b>{row.requirement}</b>
+        {showRequirement ? <b>{row.requirement}</b> : null}
         <div className="verdicts" role="group" aria-label={`${row.requirement} 판단`}>
           {VERDICTS.map(({ value, label, className }) => (
             <button
