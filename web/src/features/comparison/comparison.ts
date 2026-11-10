@@ -4,12 +4,12 @@ import type { DirectionsRun, Gap, Row, Verdict } from '../../shared/types.ts'
 export type EditedRow = Row & { aiVerdict: Verdict }
 
 export type ComparisonView =
-  | { phase: 'working'; step: string | null }
+  | { phase: 'working'; requirementCount: number | null; checking: boolean; retries: number }
   | { phase: 'done'; rows: Row[] }
   | { phase: 'failed'; reason: FailureReason }
 
 type Settlement = { outcome: string; error?: unknown }
-type Part = { type: string; toolName?: string; state?: string; output?: unknown; data?: unknown }
+type Part = { type: string; toolName?: string; state?: string; input?: unknown; output?: unknown; data?: unknown }
 
 /**
  * 대화 기록에서 비교 상태를 읽는다.
@@ -31,8 +31,16 @@ export function readComparison(
   if (status === 'error' || settlements.some(({ outcome }) => outcome !== 'completed')) return { phase: 'failed', reason: 'connection' }
   if (settlements.length > 0) return { phase: 'failed', reason: 'evidence' }
 
-  const progress = parts.findLast((part) => part.type === 'data-progress')
-  return { phase: 'working', step: progress ? (progress.data as { step: string }).step : null }
+  // 진행 표시는 실제로 받은 신호만 쓴다: 저장 도구 호출에 담긴 요건 수, 확인 중인 호출, 근거 불일치로 실패한 호출.
+  const calls = parts.filter((part) => part.type === 'dynamic-tool' && part.toolName === 'save_comparison')
+  const last = calls.at(-1)
+  const rows = (last?.input as { rows?: unknown } | undefined)?.rows
+  return {
+    phase: 'working',
+    requirementCount: Array.isArray(rows) ? rows.length : null,
+    checking: last?.state === 'input-available',
+    retries: calls.filter((part) => part.state === 'output-error').length,
+  }
 }
 
 export function applyEdits(rows: readonly Row[], edits: Readonly<Record<number, Verdict>>): EditedRow[] {

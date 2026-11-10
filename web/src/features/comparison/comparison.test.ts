@@ -46,15 +46,28 @@ describe('readComparison', () => {
     assert.deepEqual(readComparison([{ parts: [rejected] }], quota, 'idle'), { phase: 'failed', reason: 'quota' })
   })
 
-  it('끝나기 전에는 마지막 진행 단계를 보여 준다', () => {
-    assert.deepEqual(readComparison([{ parts: [progress('공고 읽기'), rejected, progress('근거 문장 확인하기')] }], [], 'streaming'), {
+  it('아직 아무 응답이 없으면 AI가 비교하는 중이다', () => {
+    assert.deepEqual(readComparison([], [], 'idle'), { phase: 'working', requirementCount: null, checking: false, retries: 0 })
+  })
+
+  it('도구를 부르면 정리한 요건 수와 근거 확인 중임을 알려 준다', () => {
+    const called = { type: 'dynamic-tool', toolName: 'save_comparison', state: 'input-available', input: { rows: [row, row, row] } }
+    assert.deepEqual(readComparison([{ parts: [called, progress('근거 문장 확인하기')] }], [], 'streaming'), {
       phase: 'working',
-      step: '근거 문장 확인하기',
+      requirementCount: 3,
+      checking: true,
+      retries: 0,
     })
   })
 
-  it('아직 아무 응답이 없어도 실패로 보지 않는다', () => {
-    assert.deepEqual(readComparison([], [], 'idle'), { phase: 'working', step: null })
+  it('근거가 맞지 않아 다시 고친 횟수를 센다', () => {
+    const failed = { ...rejected, input: { rows: [row, row] } }
+    assert.deepEqual(readComparison([{ parts: [failed, failed] }], [], 'streaming'), {
+      phase: 'working',
+      requirementCount: 2,
+      checking: false,
+      retries: 2,
+    })
   })
 })
 
