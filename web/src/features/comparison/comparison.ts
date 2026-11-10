@@ -85,11 +85,23 @@ export function repeatsLine(line: string, requirement: string): boolean {
 
 const MAX_LABEL_LENGTH = 40
 
-/** AI가 요건 이름을 `executionBalance`처럼 변수 이름으로 쓰면 공고 문장으로 바꿔 보여 준다. */
+/**
+ * AI가 요건 이름을 `executionBalance`처럼 변수 이름으로 쓰면 공고 문장으로 바꿔 보여 준다.
+ * 모델이 만든 깨진 글자(U+FFFD)는 말줄임표로 가린다. 근거 검사를 마친 결과에서는 서버가 원문으로 되돌린다.
+ */
 export function requirementLabel({ requirement, postingQuote }: Pick<Row, 'requirement' | 'postingQuote'>): string {
-  const name = requirement.trim()
+  const name = requirement.replace(/\uFFFD+/g, '…').trim()
   const looksLikeCode = !/\s/.test(name) && (name.includes('_') || /^[a-z]+[A-Z]/.test(name))
-  if (!looksLikeCode) return name
+  if (!looksLikeCode && /[^…\s]/.test(name)) return name
   const quote = normalize(postingQuote)
   return quote.length > MAX_LABEL_LENGTH ? `${quote.slice(0, MAX_LABEL_LENGTH)}…` : quote
 }
+
+const VISIBLE_DRAFTS = 4
+
+/** 비교 중에는 최근 줄만 보여 화면이 계속 길어지지 않게 하고, 접은 개수를 알려 준다. */
+export function visibleDrafts(rows: readonly Row[]): { shown: Row[]; hidden: number } {
+  const hidden = Math.max(0, rows.length - VISIBLE_DRAFTS)
+  return { shown: rows.slice(hidden), hidden }
+}
+

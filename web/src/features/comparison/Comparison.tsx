@@ -1,7 +1,7 @@
 import { useEffect, useState } from 'react'
 import type { Gap, Run, Verdict } from '../../shared/types.ts'
 import { ProgressSteps, type Step } from '../../shared/ProgressSteps.tsx'
-import { applyEdits, requirementLabel, type ComparisonView } from './comparison.ts'
+import { applyEdits, requirementLabel, visibleDrafts, type ComparisonView } from './comparison.ts'
 import { Failed } from './Failed.tsx'
 import { Result } from './Result.tsx'
 import { VERDICTS } from './verdicts.ts'
@@ -89,12 +89,15 @@ function Working({
       <ProgressSteps steps={steps} startRevealed={2} />
       {rows.length > 0 ? (
         <section className="draft-rows" aria-label="지금까지 비교한 요건">
-          <p className="small">근거를 확인하기 전의 판단이에요. 확인이 끝나면 바뀔 수 있어요.</p>
+          <p className="small">
+            지금까지 {rows.length}개를 비교했어요. 근거를 확인하기 전의 판단이라 확인이 끝나면 바뀔 수 있어요.
+            {visibleDrafts(rows).hidden > 0 ? ` 앞의 ${visibleDrafts(rows).hidden}개는 접어 뒀어요.` : ''}
+          </p>
           <ul>
-            {rows.map((row, index) => {
+            {visibleDrafts(rows).shown.map((row, index) => {
               const verdict = VERDICTS.find(({ value }) => value === row.verdict)!
               return (
-                <li className="draft-row" key={index}>
+                <li className="draft-row" key={`${visibleDrafts(rows).hidden + index}`}>
                   <span className={`pill ${verdict.className}`}>{verdict.label}</span>
                   <span>{requirementLabel(row)}</span>
                 </li>

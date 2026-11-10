@@ -25,4 +25,12 @@ describe('validateRows', () => {
 		const result = validateRows({ rows: [], posting, resume });
 		expect(result.ok ? [] : result.issues).toEqual([expect.stringMatching(/한 줄도/)]);
 	});
+
+	it('구두점만 바꿔 적은 이력서 근거는 원문으로 되돌려 통과시킨다', () => {
+		const resumeText = '프로젝트\nClaude Code · Codex 로 워크플로우를 만들었습니다.';
+		const rowWithDrift = { ...row, postingQuote: posting, resumeQuote: 'Claude Code, Codex' };
+		const result = validateRows({ rows: [rowWithDrift], posting, resume: resumeText });
+		expect(result).toEqual({ ok: true, rows: [{ ...rowWithDrift, resumeQuote: 'Claude Code · Codex' }] });
+	});
 });
+

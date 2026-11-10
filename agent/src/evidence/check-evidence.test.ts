@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { checkEvidence, restoreQuote } from './check-evidence.ts';
+import { checkEvidence, restoreLooseQuote, restoreQuote } from './check-evidence.ts';
 
 const sources = {
 	posting: '자격 요건\nReact와 TypeScript로 3년 이상 개발한 경험이 있어요.\n테스트 코드를 작성해 본 경험이 있어요.',
@@ -101,3 +101,37 @@ describe('restoreQuote', () => {
 		expect(restoreQuote('��에', source)).toBe('��에');
 	});
 });
+
+describe('restoreLooseQuote', () => {
+	const resume = '프로젝트 경험\nClaude Code · Codex 로 AI 워크플로우를 만들었습니다.\nPR 리뷰와 문서화를 했습니다.';
+
+	it('구두점과 띄어쓰기만 바꿔 적은 근거는 원문 문장으로 되돌린다', () => {
+		expect(restoreLooseQuote('Claude Code, Codex', resume)).toBe('Claude Code · Codex');
+	});
+
+	it('대소문자만 다른 근거도 원문 그대로 되돌린다', () => {
+		expect(restoreLooseQuote('claude code codex 로 ai 워크플로우', resume)).toBe('Claude Code · Codex 로 AI 워크플로우');
+	});
+
+	it('이미 원문에 그대로 있으면 바꾸지 않는다', () => {
+		expect(restoreLooseQuote('PR 리뷰와 문서화를 했습니다.', resume)).toBe('PR 리뷰와 문서화를 했습니다.');
+	});
+
+	it('원문에 없는 내용은 바꾸지 않는다', () => {
+		expect(restoreLooseQuote('Kubernetes, Docker', resume)).toBe('Kubernetes, Docker');
+	});
+
+	it('너무 짧은 근거는 우연히 맞을 수 있어 바꾸지 않는다', () => {
+		expect(restoreLooseQuote('AI', resume)).toBe('AI');
+	});
+
+	it('원문에서 두 곳 이상 맞으면 어느 쪽인지 알 수 없어 바꾸지 않는다', () => {
+		const twice = 'React, Vue 경험\n다른 일\nReact · Vue 경험';
+		expect(restoreLooseQuote('React Vue 경험', twice)).toBe('React Vue 경험');
+	});
+
+	it('글자가 달라진 근거는 바꾸지 않는다', () => {
+		expect(restoreLooseQuote('Claude Code, Cursor', resume)).toBe('Claude Code, Cursor');
+	});
+});
+

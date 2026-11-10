@@ -1,5 +1,5 @@
 import * as v from 'valibot';
-import { checkEvidence, restoreQuote, type EvidenceIssue } from '../evidence/check-evidence.ts';
+import { checkEvidence, restoreLooseQuote, restoreQuote, type EvidenceIssue } from '../evidence/check-evidence.ts';
 import { comparisonInput } from '../agents/comparison-input.ts';
 
 export const comparisonRow = v.object({
@@ -35,12 +35,12 @@ export function validateRows({ rows, posting, resume }: { rows: Row[]; posting: 
 	if (rows.length === 0) return { ok: false, issues: ['요건 줄을 한 줄도 읽지 못했습니다. 한 줄에 JSON 하나씩, 요건마다 한 줄을 쓰세요.'] };
 
 	const restored = rows.map((row) => {
-		const postingQuote = restoreQuote(row.postingQuote, posting);
+		const postingQuote = restoreLooseQuote(restoreQuote(row.postingQuote, posting), posting);
 		return {
 			...row,
 			requirement: row.requirement.includes('�') ? postingQuote : row.requirement,
 			postingQuote,
-			resumeQuote: row.resumeQuote === null ? null : restoreQuote(row.resumeQuote, resume),
+			resumeQuote: row.resumeQuote === null ? null : restoreLooseQuote(restoreQuote(row.resumeQuote, resume), resume),
 		};
 	});
 

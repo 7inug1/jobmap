@@ -46,6 +46,34 @@ export function restoreQuote(quote: string, source: string): string {
 	return candidates.size === 1 ? [...candidates][0]! : quote;
 }
 
+const MIN_LOOSE_CHARS = 6;
+const LETTER_OR_DIGIT = /[\p{L}\p{N}]/u;
+
+/**
+ * 모델이 근거를 옮겨 적다가 구두점, 띄어쓰기, 대소문자만 바꾼 경우(예: 원문 "Claude Code · Codex"를 "Claude Code, Codex"로)
+ * 글자와 숫자만 비교해 원문에서 한 곳에서만 맞으면 원문 문장으로 되돌린다.
+ * 글자가 달라졌거나 여러 곳에서 맞거나 너무 짧으면 그대로 둬서 근거 확인에서 걸리게 한다.
+ */
+export function restoreLooseQuote(quote: string, source: string): string {
+	const text = normalize(source);
+	if (text.includes(normalize(quote))) return quote;
+
+	const keptAt: number[] = [];
+	let looseSource = '';
+	for (let index = 0; index < text.length; index += 1) {
+		if (LETTER_OR_DIGIT.test(text[index]!)) {
+			keptAt.push(index);
+			looseSource += text[index]!.toLowerCase();
+		}
+	}
+	const looseQuote = Array.from(normalize(quote)).filter((char) => LETTER_OR_DIGIT.test(char)).join('').toLowerCase();
+	if (looseQuote.length < MIN_LOOSE_CHARS) return quote;
+
+	const first = looseSource.indexOf(looseQuote);
+	if (first === -1 || looseSource.indexOf(looseQuote, first + 1) !== -1) return quote;
+	return text.slice(keptAt[first]!, keptAt[first + looseQuote.length - 1]! + 1);
+}
+
 /** 에이전트가 든 근거 문장이 각자의 원문에 실제로 있는지 확인한다. */
 export function checkEvidence(
 	rows: EvidenceRow[],

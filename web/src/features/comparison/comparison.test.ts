@@ -1,7 +1,7 @@
 import assert from 'node:assert/strict'
 import { describe, it } from 'node:test'
 import type { Row } from '../../shared/types.ts'
-import { annotatePosting, applyEdits, directionsWillReset, gapsFromRows, readComparison, repeatsLine, requirementLabel, sameGaps } from './comparison.ts'
+import { annotatePosting, applyEdits, directionsWillReset, gapsFromRows, readComparison, repeatsLine, requirementLabel, sameGaps, visibleDrafts } from './comparison.ts'
 
 const row: Row = {
   requirement: 'React 3년',
@@ -157,6 +157,30 @@ describe('requirementLabel', () => {
   it('바꿔 쓴 공고 문장이 길면 줄여서 보여 준다', () => {
     const label = requirementLabel({ requirement: 'executionBalance', postingQuote: '가'.repeat(80) })
     assert.equal(label, `${'가'.repeat(40)}…`)
+  })
+})
+
+describe('requirementLabel 깨진 글자', () => {
+  it('깨진 글자는 말줄임표로 가려 보여 준다', () => {
+    assert.equal(requirementLabel({ requirement: '모바일 \uFFFD\uFFFD 내 \uFFFD\uFFFD뷰 개발 경험', postingQuote: '공고' }), '모바일 … 내 …뷰 개발 경험')
+  })
+
+  it('이름이 깨진 글자만이면 공고 문장으로 바꾼다', () => {
+    assert.equal(requirementLabel({ requirement: '\uFFFD\uFFFD', postingQuote: '실행과 균형을 챙기는 분' }), '실행과 균형을 챙기는 분')
+  })
+})
+
+describe('visibleDrafts', () => {
+  const rows = Array.from({ length: 7 }, (_, index) => ({ ...row, requirement: `요건 ${index + 1}` }))
+
+  it('최근 4개만 보여 주고 접은 개수를 알려 준다', () => {
+    const { shown, hidden } = visibleDrafts(rows)
+    assert.deepEqual(shown.map(({ requirement }) => requirement), ['요건 4', '요건 5', '요건 6', '요건 7'])
+    assert.equal(hidden, 3)
+  })
+
+  it('4개 이하면 모두 보여 준다', () => {
+    assert.deepEqual(visibleDrafts(rows.slice(0, 3)), { shown: rows.slice(0, 3), hidden: 0 })
   })
 })
 
