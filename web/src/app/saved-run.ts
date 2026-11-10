@@ -78,6 +78,7 @@ function isRun(value: unknown): value is Run {
     isOptional(value.skippedGaps, (names) => isArrayOf(names, isString)) &&
     isOptional(value.createdAt, (time) => typeof time === 'number') &&
     isOptional(value.rows, (rows) => isArrayOf(rows, isRow)) &&
+    isOptional(value.schedule, (plan) => isObject(plan) && Object.values(plan).every(isString)) &&
     isOptional(value.completions, (records) => isArrayOf(records, (record) => isObject(record) && isString(record.key) && typeof record.hours === 'number')) &&
     isOptional(value.retries, (retries) => typeof retries === 'number')
   )

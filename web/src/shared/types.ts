@@ -61,8 +61,10 @@ export type Run = Inputs & {
   skippedGaps?: string[]
   sentences?: SentencesState
   weeklyHours?: number
-  /** 예전 저장 형식. 일 단위로 끝냈는지만 기록했다. */
+  /** 끝낸 일의 키. 이력서 문장의 할 일이 아닌 일(공부, 예전 기록의 프로젝트)을 기록한다. */
   doneTasks?: string[]
+  /** 할 일을 하려고 적은 날짜(YYYY-MM-DD). 일의 키로 찾는다. */
+  schedule?: Record<string, string>
   completions?: Completion[]
   /** 서버 검사를 마친 판단. 있으면 대화 기록 대신 이것을 보여 준다. */
   rows?: Row[]

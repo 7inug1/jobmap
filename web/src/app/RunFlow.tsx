@@ -9,22 +9,17 @@ import { DirectionPicker } from '../features/directions/DirectionPicker.tsx'
 import { DirectionsLoading } from '../features/directions/DirectionsLoading.tsx'
 import { activeDirections, appendDirections, nextBatch, picksWithout, rankGaps, remainingGaps } from '../features/directions/directions.ts'
 import { fetchDirections } from '../features/directions/fetch-directions.ts'
-import { DEFAULT_WEEKLY_HOURS } from '../features/week-plan/week-plan.ts'
-import { WeekPlan } from '../features/week-plan/WeekPlan.tsx'
+import { buildPlanTasks, DEFAULT_WEEKLY_HOURS } from '../features/plan/plan.ts'
+import { PlanScreen } from '../features/plan/PlanScreen.tsx'
 import { fetchSentences } from '../features/resume/fetch-sentences.ts'
 import { ResumeTab } from '../features/resume/ResumeTab.tsx'
 import { SentenceFlow } from '../features/resume/SentenceFlow.tsx'
 import { SentencesLoading } from '../features/resume/SentencesLoading.tsx'
 import { itemKeys, missingPicks, projectPicks, reconcileItems } from '../features/resume/sentences.ts'
 import { directionsFailure, sentencesFailure } from '../shared/failure-reasons.ts'
-import type { Completion, Gap, Run } from '../shared/types.ts'
+import type { Gap, Run } from '../shared/types.ts'
 import { runPath, type Step } from './runs.ts'
 import { useRuns } from './runs-context.ts'
-
-/** 예전 기록의 끝낸 일은 전체 시간을 해낸 것으로 본다. 시간은 계산에서 일의 시간으로 줄어든다. */
-function completionsOf(run: Run): Completion[] {
-  return run.completions ?? (run.doneTasks ?? []).map((key) => ({ key, hours: Number.MAX_SAFE_INTEGER }))
-}
 
 // 근거가 틀렸을 때 AI에게 고쳐 달라고 보내는 최대 횟수. 예전 도구 방식의 재시도 횟수와 같다.
 const MAX_FIX_REQUESTS = 2
@@ -192,17 +187,16 @@ export function RunFlow({ run, step }: { run: Run; step: Step }) {
   }
   if (step === 'plan' && run.directions) {
     return (
-      <WeekPlan
-        directions={activeDirections(run.directions.directions, skipped)}
-        picks={run.directions.picks}
+      <PlanScreen
+        run={run}
+        tasks={buildPlanTasks({ ...run, directions: { ...run.directions, directions: activeDirections(run.directions.directions, skipped) } })}
+        weeklyHours={run.weeklyHours ?? DEFAULT_WEEKLY_HOURS}
+        skippedNames={skipped}
         remainingCount={remaining.length}
         resumeHref={run.sentences ? runPath(run.id, 'resume') : undefined}
-        completions={completionsOf(run)}
-        weeklyHours={run.weeklyHours ?? DEFAULT_WEEKLY_HOURS}
-        onCompletions={(completions) => onChange({ ...run, completions, doneTasks: undefined })}
-        onWeeklyHours={(weeklyHours) => onChange({ ...run, weeklyHours })}
+        onChange={onChange}
         onBack={() => navigate(runPath(run.id, 'directions'))}
-        onRestart={onAnother}
+        onAnother={onAnother}
       />
     )
   }

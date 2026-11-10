@@ -2,8 +2,8 @@ import { useState } from 'react'
 import { Link } from 'react-router'
 import type { Run, SentenceItem } from '../../shared/types.ts'
 import { ResumePaper } from './ResumePaper.tsx'
-import { SentenceText } from './SentenceText.tsx'
-import { addedAtTarget, blanksOf, placeSentences, readyToFill, resumePages } from './sentences.ts'
+import { FillCard } from './FillCard.tsx'
+import { addedAtTarget, placeSentences, readyToFill, resumePages } from './sentences.ts'
 import { ZoomStage } from './ZoomStage.tsx'
 
 /** 이력서 문장 화면. 할 일을 체크하고, 다 끝나면 실제 결과를 넣어 문장을 완성한다. */
@@ -98,54 +98,5 @@ export function ResumeTab({ run, onChange, planHref }: { run: Run; onChange: (ru
         </Link>
       </div>
     </>
-  )
-}
-
-function FillCard({ item, onFill }: { item: SentenceItem; onFill: (answers: Record<string, string>) => void }) {
-  const blanks = blanksOf(item.sentence)
-  const [values, setValues] = useState<Record<string, string>>({})
-  const [missing, setMissing] = useState<string | null>(null)
-
-  function submit() {
-    const empty = blanks.find((name) => !values[name]?.trim())
-    if (empty) {
-      setMissing(empty)
-      return
-    }
-    onFill(Object.fromEntries(blanks.map((name) => [name, values[name]!.trim()])))
-  }
-
-  return (
-    <article className="fill-card">
-      <b>할 일을 끝냈어요. 결과를 넣으면 이력서 문장이 완성돼요.</b>
-      <div className="goal">
-        <span>
-          <SentenceText sentence={item.sentence} answers={values} />
-        </span>
-      </div>
-      {blanks.map((name) => (
-        <input
-          key={name}
-          type="text"
-          value={values[name] ?? ''}
-          placeholder={name}
-          aria-label={name}
-          maxLength={120}
-          aria-invalid={missing === name}
-          onChange={(event) => {
-            setValues({ ...values, [name]: event.target.value })
-            setMissing(null)
-          }}
-        />
-      ))}
-      {missing ? (
-        <p className="error" role="alert">
-          {missing} 칸을 채워 주세요.
-        </p>
-      ) : null}
-      <button className="btn" type="button" onClick={submit}>
-        이력서에 넣을게요
-      </button>
-    </article>
   )
 }
