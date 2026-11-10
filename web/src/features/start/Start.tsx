@@ -178,6 +178,7 @@ export function Start({ initial, onStarted }: { initial: Inputs; onStarted: (run
           ) : (
             <label
               className={`drop${dragging ? ' is-over' : ''}`}
+              aria-busy={readingPdf}
               onDragOver={(event) => {
                 event.preventDefault()
                 setDragging(true)
@@ -186,6 +187,17 @@ export function Start({ initial, onStarted }: { initial: Inputs; onStarted: (run
               onDrop={dropPdf}
             >
               <input id="resume-file" type="file" accept="application/pdf,.pdf" disabled={readingPdf} onChange={attachPdf} />
+              <span className="drop-icon" aria-hidden="true">
+                {readingPdf ? (
+                  <span className="spinner" />
+                ) : (
+                  <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round">
+                    <path d="M14 3H7a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h10a2 2 0 0 0 2-2V8z" />
+                    <path d="M14 3v5h5" />
+                    {resumeDone ? <path d="m9 14 2 2 4-4" /> : <path d="M12 17v-6m-3 3 3-3 3 3" />}
+                  </svg>
+                )}
+              </span>
               <b>
                 {readingPdf
                   ? 'PDF를 읽고 있어요.'

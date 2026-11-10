@@ -163,4 +163,10 @@ input, textarea { width: 100%; padding: 10px 12px; font: inherit; color: inherit
 .sources-fold[open] summary { margin-bottom: 8px; }
 .submit-row { display: grid; gap: 8px; justify-items: center; text-align: center; }
 .btn-wide { width: 100%; min-height: 52px; font-size: 17px; }
+.drop-icon { display: grid; place-items: center; width: 46px; height: 46px; margin-bottom: 4px; border: 1px solid var(--line); border-radius: 12px; background: var(--bg); color: var(--mfg); }
+.drop:hover .drop-icon, .drop.is-over .drop-icon { color: var(--fg); border-color: var(--fg); }
+.is-done .drop-icon { color: var(--ok); border-color: var(--ok); }
+.spinner { width: 18px; height: 18px; border: 2px solid var(--line); border-top-color: var(--fg); border-radius: 50%; animation: spin .8s linear infinite; }
+@keyframes spin { to { transform: rotate(360deg); } }
+@media (prefers-reduced-motion: reduce) { .spinner { animation: none; } }
 
