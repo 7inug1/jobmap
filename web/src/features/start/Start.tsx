@@ -1,4 +1,4 @@
-import { useEffect, useRef, useState, type ChangeEvent, type FormEvent } from 'react'
+import { useEffect, useRef, useState, type ChangeEvent, type DragEvent, type FormEvent } from 'react'
 import { DAILY_LIMIT_DETAIL, isDailyLimit } from '../../shared/failure-reasons.ts'
 import { startRun } from '../../shared/start-run.ts'
 import type { Inputs, Run } from '../../shared/types.ts'
@@ -22,6 +22,7 @@ export function Start({ initial, onStarted }: { initial: Inputs; onStarted: (run
   const [readingPdf, setReadingPdf] = useState(false)
   const [resumeError, setResumeError] = useState<string | null>(null)
   const [pasteResume, setPasteResume] = useState(false)
+  const [dragging, setDragging] = useState(false)
 
   const [url, setUrl] = useState('')
   const [posting, setPosting] = useState(initial.posting)
@@ -39,7 +40,8 @@ export function Start({ initial, onStarted }: { initial: Inputs; onStarted: (run
   const resumeTextError = checkResumeText(resume)
   const postingTextError = pastePosting ? checkPostingText(posting) : null
   const hasPosting = pastePosting ? posting.trim() !== '' && !postingTextError : url.trim() !== '' && !urlError
-  const ready = resume.trim() !== '' && !resumeTextError && hasPosting && !readingPdf && status === 'idle'
+  const resumeDone = resume.trim() !== '' && !resumeTextError && !readingPdf
+  const ready = resumeDone && hasPosting && status === 'idle'
 
   // 모달이 화면에서 사라진 뒤에 옮겨야 브라우저의 포커스 복원과 겹치지 않는다.
   useEffect(() => {
@@ -49,10 +51,20 @@ export function Start({ initial, onStarted }: { initial: Inputs; onStarted: (run
     target?.focus()
   }, [notice])
 
-  async function attachPdf(event: ChangeEvent<HTMLInputElement>) {
+  function attachPdf(event: ChangeEvent<HTMLInputElement>) {
     const file = event.target.files?.[0]
     event.target.value = ''
-    if (!file) return
+    if (file) void readPdfFile(file)
+  }
+
+  function dropPdf(event: DragEvent<HTMLLabelElement>) {
+    event.preventDefault()
+    setDragging(false)
+    const file = event.dataTransfer.files[0]
+    if (file && !readingPdf) void readPdfFile(file)
+  }
+
+  async function readPdfFile(file: File) {
     setResumeError(null)
     setPdfName(null)
     const sizeError = checkPdfSize(file.size)
@@ -133,38 +145,27 @@ export function Start({ initial, onStarted }: { initial: Inputs; onStarted: (run
     }
   }
 
+  const errorLine = (message: string | null) =>
+    message ? (
+      <p className="error" role="alert">
+        {message}
+      </p>
+    ) : null
+
   return (
     <>
       <div className="start">
         <h1>일주일에 3시간만 써도 원하는 이직을 준비할 수 있어요</h1>
-        <p className="lead">이력서와 가고 싶은 공고를 비교해서, 지원 전에 꼭 할 일만 정해 드려요.</p>
+        <p className="lead">이력서 PDF와 가고 싶은 공고 링크, 이 두 가지만 넣어 주세요. 무엇부터 할지는 잡맵이 정해 드려요.</p>
       </div>
-      <form className="form" onSubmit={submit}>
-        <div className="field">
-          <span className="label">내 이력서</span>
-          <div className="file-row">
-            <label className="btn-line file-button">
-              <input id="resume-file" type="file" accept="application/pdf,.pdf" disabled={readingPdf} onChange={attachPdf} />
-              {readingPdf ? 'PDF를 읽고 있어요' : resume.trim() !== '' && !pasteResume ? '다른 PDF를 첨부할게요' : 'PDF를 첨부할게요'}
-            </label>
-            {pdfName ? <span className="small">{pdfName}</span> : null}
-            {!pdfName && resume.trim() !== '' && !pasteResume ? <span className="small">이전에 넣은 이력서를 쓸게요.</span> : null}
-            {!pasteResume ? (
-              <button className="link-button" type="button" onClick={() => setPasteResume(true)}>
-                이력서를 직접 붙여 넣을게요
-              </button>
-            ) : null}
+      <form className="intake" onSubmit={submit}>
+        <section className={`step-card${resumeDone ? ' is-done' : ''}`} aria-labelledby="step-resume">
+          <div className="step-head">
+            <span className="step-no" aria-hidden="true">
+              {resumeDone ? '✓' : '1'}
+            </span>
+            <h2 id="step-resume">내 이력서</h2>
           </div>
-          {resumeError ? (
-            <p className="error" role="alert">
-              {resumeError}
-            </p>
-          ) : null}
-          {resumeTextError ? (
-            <p className="error" role="alert">
-              {resumeTextError}
-            </p>
-          ) : null}
           {pasteResume ? (
             <textarea
               id="resume"
@@ -174,39 +175,47 @@ export function Start({ initial, onStarted }: { initial: Inputs; onStarted: (run
               value={resume}
               onChange={(event) => setResume(event.target.value)}
             />
-          ) : null}
-        </div>
-        <div className="field">
-          <label htmlFor="posting-url">가고 싶은 공고</label>
-          <input
-            id="posting-url"
-            ref={urlInput}
-            type="url"
-            inputMode="url"
-            placeholder="https://careers.daangn.com/jobs/role/..."
-            value={url}
-            onChange={(event) => setUrl(event.target.value)}
-          />
-          {source.kind === 'supported' ? <span className="small">{source.name} 공고는 링크로 읽을 수 있어요.</span> : null}
-          {source.kind === 'unknown' ? (
-            <span className="small">아직 확인하지 않은 사이트예요. 읽지 못하면 본문을 붙여 넣어 달라고 안내할게요.</span>
-          ) : null}
-          {source.kind === 'unsupported' ? (
-            <p className="error" role="status">
-              {source.name} 공고는 링크로 읽지 못해요. 공고 본문을 붙여 넣어 주세요.
-            </p>
-          ) : null}
-          {urlError ? (
-            <p className="error" role="alert">
-              {urlError}
-            </p>
-          ) : null}
-          <dl className="sources">
-            <dt>링크로 읽어요</dt>
-            <dd>{SUPPORTED.map(({ name }) => name).join(', ')}</dd>
-            <dt>붙여 넣어 주세요</dt>
-            <dd>{UNSUPPORTED.map(({ name }) => name).join(', ')}</dd>
-          </dl>
+          ) : (
+            <label
+              className={`drop${dragging ? ' is-over' : ''}`}
+              onDragOver={(event) => {
+                event.preventDefault()
+                setDragging(true)
+              }}
+              onDragLeave={() => setDragging(false)}
+              onDrop={dropPdf}
+            >
+              <input id="resume-file" type="file" accept="application/pdf,.pdf" disabled={readingPdf} onChange={attachPdf} />
+              <b>
+                {readingPdf
+                  ? 'PDF를 읽고 있어요.'
+                  : pdfName
+                    ? pdfName
+                    : resume.trim() !== ''
+                      ? '이전에 넣은 이력서를 쓸게요.'
+                      : 'PDF를 첨부할게요.'}
+              </b>
+              <span className="small">
+                {pdfName || resume.trim() !== ''
+                  ? '다른 PDF로 바꾸려면 여기를 눌러 주세요.'
+                  : '여기를 누르거나 PDF 파일을 끌어다 놓아 주세요.'}
+              </span>
+            </label>
+          )}
+          {errorLine(resumeError)}
+          {errorLine(resumeTextError)}
+          <button className="link-button start-align" type="button" onClick={() => setPasteResume(!pasteResume)}>
+            {pasteResume ? 'PDF로 첨부할게요' : '이력서를 직접 붙여 넣을게요'}
+          </button>
+        </section>
+
+        <section className={`step-card${hasPosting ? ' is-done' : ''}`} aria-labelledby="step-posting">
+          <div className="step-head">
+            <span className="step-no" aria-hidden="true">
+              {hasPosting ? '✓' : '2'}
+            </span>
+            <h2 id="step-posting">가고 싶은 공고</h2>
+          </div>
           {pastePosting ? (
             <textarea
               id="posting"
@@ -218,25 +227,54 @@ export function Start({ initial, onStarted }: { initial: Inputs; onStarted: (run
               onChange={(event) => setPosting(event.target.value)}
             />
           ) : (
-            <button className="link-button start-align" type="button" onClick={() => setPastePosting(true)}>
-              링크 없이 공고 본문을 붙여 넣을게요
-            </button>
+            <>
+              <input
+                id="posting-url"
+                ref={urlInput}
+                type="url"
+                inputMode="url"
+                aria-label="공고 링크"
+                placeholder="공고 링크를 붙여 넣어 주세요."
+                value={url}
+                onChange={(event) => setUrl(event.target.value)}
+              />
+              {source.kind === 'supported' ? <span className="small">{source.name} 공고는 링크로 읽을 수 있어요.</span> : null}
+              {source.kind === 'unknown' ? (
+                <span className="small">아직 확인하지 않은 사이트예요. 읽지 못하면 본문을 붙여 넣어 달라고 안내할게요.</span>
+              ) : null}
+              {source.kind === 'unsupported' ? (
+                <p className="error" role="status">
+                  {source.name} 공고는 링크로 읽지 못해요. 공고 본문을 붙여 넣어 주세요.
+                </p>
+              ) : null}
+              {errorLine(urlError)}
+            </>
           )}
-          {postingTextError ? (
-            <p className="error" role="alert">
-              {postingTextError}
-            </p>
-          ) : null}
-        </div>
-        {startError ? (
-          <p className="error" role="alert">
-            {startError}
-          </p>
-        ) : null}
-        <div>
-          <button className="btn" type="submit" disabled={!ready}>
+          {errorLine(postingTextError)}
+          <div className="step-links">
+            <button className="link-button" type="button" onClick={() => setPastePosting(!pastePosting)}>
+              {pastePosting ? '공고 링크를 넣을게요' : '링크 없이 공고 본문을 붙여 넣을게요'}
+            </button>
+            <details className="sources-fold">
+              <summary>링크로 읽을 수 있는 사이트를 볼게요</summary>
+              <dl className="sources">
+                <dt>링크로 읽어요</dt>
+                <dd>{SUPPORTED.map(({ name }) => name).join(', ')}</dd>
+                <dt>붙여 넣어 주세요</dt>
+                <dd>{UNSUPPORTED.map(({ name }) => name).join(', ')}</dd>
+              </dl>
+            </details>
+          </div>
+        </section>
+
+        {errorLine(startError)}
+        <div className="submit-row">
+          <button className="btn btn-wide" type="submit" disabled={!ready}>
             {status === 'reading-posting' ? '공고를 읽고 있어요' : status === 'starting' ? '비교를 시작하고 있어요' : '내 이력과 비교해 볼게요'}
           </button>
+          <span className="small">
+            {ready ? '비교가 끝나면 부족한 부분을 채울 방법을 보여 드려요.' : '두 가지를 모두 넣으면 비교를 시작할 수 있어요.'}
+          </span>
         </div>
       </form>
       {notice ? (

@@ -34,7 +34,7 @@
 }
 
 * { box-sizing: border-box; }
-body { margin: 0; background: var(--bg); color: var(--fg); font: 16px/1.6 var(--sans); }
+body { margin: 0; background: var(--bg); color: var(--fg); font: 16px/1.6 var(--sans); word-break: keep-all; overflow-wrap: anywhere; }
 h1, h3, p { margin: 0; }
 button { font: inherit; color: inherit; background: none; border: 0; cursor: pointer; }
 input, textarea { width: 100%; padding: 10px 12px; font: inherit; color: inherit; background: var(--bg); border: 1px solid var(--line); border-radius: 9px; resize: vertical; }
@@ -143,3 +143,24 @@ input, textarea { width: 100%; padding: 10px 12px; font: inherit; color: inherit
 .modal h2 { margin: 0 0 8px; font-size: 18px; }
 .modal p { margin: 0 0 12px; }
 .modal .actions-row { margin-top: 16px; }
+
+/* 첫 화면: 넣을 것은 두 가지뿐이라는 것이 먼저 보이게 한다. docs/design-principles.md */
+.intake { display: grid; gap: 14px; }
+.step-card { display: grid; gap: 12px; padding: 20px; border: 1px solid var(--line); border-radius: 14px; transition: border-color .2s; }
+.step-card.is-done { border-color: var(--ok); }
+.step-head { display: flex; align-items: center; gap: 10px; }
+.step-head h2 { margin: 0; font-size: 17px; font-weight: 800; }
+.step-no { flex: none; display: grid; place-items: center; width: 26px; height: 26px; border-radius: 50%; background: var(--fg); color: var(--bg); font-size: 13px; font-weight: 800; }
+.is-done .step-no { background: var(--ok-soft); color: var(--ok); }
+.drop { position: relative; display: grid; gap: 4px; justify-items: center; padding: 28px 16px; border: 1.5px dashed var(--line); border-radius: 12px; background: var(--panel); text-align: center; cursor: pointer; overflow-wrap: anywhere; }
+.drop:hover, .drop.is-over { border-color: var(--fg); }
+.drop:focus-within { outline: 2px solid var(--fg); outline-offset: 2px; }
+.drop input { position: absolute; width: 1px; height: 1px; opacity: 0; }
+.is-done .drop { border-style: solid; border-color: var(--ok); background: var(--ok-soft); }
+.intake input[type="url"] { min-height: 48px; }
+.step-links { display: flex; flex-wrap: wrap; align-items: baseline; justify-content: space-between; gap: 6px 16px; }
+.sources-fold summary { cursor: pointer; color: var(--mfg); font-size: 13px; }
+.sources-fold[open] summary { margin-bottom: 8px; }
+.submit-row { display: grid; gap: 8px; justify-items: center; text-align: center; }
+.btn-wide { width: 100%; min-height: 52px; font-size: 17px; }
+
