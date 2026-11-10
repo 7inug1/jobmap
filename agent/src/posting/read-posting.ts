@@ -19,6 +19,8 @@ const ARTICLE = new RegExp(`<article\\b${ATTRIBUTES}>([\\s\\S]*?)</article\\s*>`
 const JSON_LD = /<script\b[^>]*application\/ld\+json[^>]*>([\s\S]*?)<\/script\s*>/gi;
 const BODY = new RegExp(`<body\\b${ATTRIBUTES}>([\\s\\S]*)</body\\s*>`, 'i');
 const LIST_ITEM = new RegExp(`<li\\b${ATTRIBUTES}>`, 'gi');
+const HEADING_OPEN = new RegExp(`<h([1-6])\\b${ATTRIBUTES}>`, 'gi');
+const BOLD_PARAGRAPH = new RegExp(`<p\\b${ATTRIBUTES}>\\s*<(strong|b)\\b${ATTRIBUTES}>([^<]{1,60})</\\1\\s*>\\s*</p\\s*>`, 'gi');
 const LINE_BREAK = /<\/(?:p|div|section|article|header|footer|ul|ol|li|h[1-6]|tr)\s*>|<br\s*\/?>/gi;
 
 const NAMED_ENTITIES: Record<string, string> = {
@@ -44,15 +46,25 @@ function stripCode(html: string): string {
 		.replace(/<(script|style|noscript|template|svg)\b[\s\S]*?<\/\1\s*>/gi, ' ');
 }
 
-/** HTML에서 사람이 읽는 글만 줄 단위로 꺼낸다. */
+/**
+ * HTML에서 사람이 읽는 글만 줄 단위로 꺼낸다.
+ * 화면이 공고 구조를 그대로 보여 줄 수 있게 제목은 "#", 목록은 "- "로 표시한다. 굵은 글씨만 있는 문단도 제목으로 본다.
+ */
 export function extractText(html: string): string {
 	const withoutCode = stripCode(html);
 	const scope = MAIN.exec(withoutCode)?.[1] ?? BODY.exec(withoutCode)?.[1] ?? withoutCode;
 
-	return decodeEntities(scope.replace(LIST_ITEM, '\n- ').replace(LINE_BREAK, '\n').replace(ANY_TAG, ''))
+	return decodeEntities(
+		scope
+			.replace(BOLD_PARAGRAPH, (_whole, _tag: string, text: string) => `\n## ${text}\n`)
+			.replace(HEADING_OPEN, (_whole, level: string) => `\n${'#'.repeat(Number(level))} `)
+			.replace(LIST_ITEM, '\n- ')
+			.replace(LINE_BREAK, '\n')
+			.replace(ANY_TAG, ''),
+	)
 		.split('\n')
 		.map((line) => line.replace(/\s+/g, ' ').trim())
-		.filter((line) => line !== '' && line !== '-')
+		.filter((line) => line !== '' && !/^(?:-|#+)$/.test(line))
 		.join('\n');
 }
 

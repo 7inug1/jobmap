@@ -10,11 +10,27 @@ function page(body: string, init?: ResponseInit) {
 describe('extractText', () => {
 	it('태그와 스크립트, 스타일을 빼고 글만 남긴다', () => {
 		const html = '<html><style>a{}</style><script>var a="b"</script><body><h1>제목</h1><p>본문</p></body></html>';
-		expect(extractText(html)).toBe('제목\n본문');
+		expect(extractText(html)).toBe('# 제목\n본문');
 	});
 
 	it('main이 있으면 main 안의 글만 쓴다', () => {
 		expect(extractText('<body><nav>메뉴</nav><main><p>공고</p></main><footer>주소</footer></body>')).toBe('공고');
+	});
+
+	it('제목 태그는 단계에 맞춰 "#"을 붙여 남긴다', () => {
+		expect(extractText('<main><h3 class="x">자격요건</h3><ul><li>React</li></ul></main>')).toBe('### 자격요건\n- React');
+	});
+
+	it('앞 글과 붙어 있어도 제목은 새 줄에서 시작한다', () => {
+		expect(extractText('<main><span>찾습니다.</span><h3>주요업무</h3><p>본문</p></main>')).toBe('찾습니다.\n### 주요업무\n본문');
+	});
+
+	it('굵은 글씨만 있는 문단은 제목으로 남긴다', () => {
+		expect(extractText('<main><p><strong>우대사항</strong></p><p>본문</p></main>')).toBe('## 우대사항\n본문');
+	});
+
+	it('빈 제목 태그는 남기지 않는다', () => {
+		expect(extractText('<main><h2> </h2><p>본문</p></main>')).toBe('본문');
 	});
 
 	it('목록은 줄을 나누어 "- "로 시작한다', () => {
@@ -85,7 +101,7 @@ describe('readPosting', () => {
 		const data = { '@type': 'JobPosting', title: '프론트엔드 개발자', description: `<h3>자격 요건</h3><ul><li>${LONG}</li></ul>` };
 		const html = `<script type="application/ld+json">${JSON.stringify(data)}</script><main><p>${LONG}</p><p>연관 콘텐츠</p></main>`;
 		const result = await readPosting('https://example.com/job', page(html));
-		expect(result).toEqual({ ok: true, text: `프론트엔드 개발자\n자격 요건\n- ${LONG.trim()}` });
+		expect(result).toEqual({ ok: true, text: `프론트엔드 개발자\n### 자격 요건\n- ${LONG.trim()}` });
 	});
 
 	it('배열과 @graph 안의 공고 데이터도 찾는다', async () => {

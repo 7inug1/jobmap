@@ -17,6 +17,8 @@ export function classifyLines(lines: readonly string[]): { kind: LineKind; text:
   const isItem = (text: string | undefined) => text !== undefined && ITEM_MARK.test(text.trim())
   return lines.map((raw, index) => {
     const text = raw.trim()
+    const marked = /^#{1,6}\s+(.+)$/.exec(text)
+    if (marked) return { kind: 'heading', text: marked[1]! }
     if (isItem(text)) return { kind: 'item', text: text.replace(ITEM_MARK, '') }
     const heading =
       isHeadingLike(text) && (SECTION_NAMES.test(text.replace(/:$/, '')) || text.endsWith(':') || isItem(lines[index + 1]))

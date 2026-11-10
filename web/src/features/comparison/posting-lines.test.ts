@@ -31,4 +31,8 @@ describe('classifyLines', () => {
     const long = '우리 팀은 사용자가 매일 쓰는 제품을 만들고 그 결과를 숫자로 확인하는 일을 합니다 그래서'
     assert.equal(classifyLines([long, '- A'])[0]!.kind, 'text')
   })
+
+  it('서버가 표시한 제목은 모양과 상관없이 제목이고 표시는 뗀다', () => {
+    assert.deepEqual(kinds(['### 자격요건', '## Annual Salary: $190,000']), ['heading:자격요건', 'heading:Annual Salary: $190,000'])
+  })
 })
