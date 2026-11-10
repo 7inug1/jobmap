@@ -1,27 +1,27 @@
 import { isQuotaError, type FailureReason } from '../../shared/failure-reasons.ts'
+import { parseRows } from './parse-rows.ts'
 import type { DirectionsRun, Gap, Row, Verdict } from '../../shared/types.ts'
 
 export type EditedRow = Row & { aiVerdict: Verdict }
 
 export type ComparisonView =
-  | { phase: 'working'; requirementCount: number | null; checking: boolean; retries: number }
+  | { phase: 'working'; rows: Row[]; retries: number; answered: boolean }
   | { phase: 'done'; rows: Row[] }
   | { phase: 'failed'; reason: FailureReason }
 
 type Settlement = { outcome: string; error?: unknown }
-type Part = { type: string; toolName?: string; state?: string; input?: unknown; output?: unknown; data?: unknown }
+type Part = { type: string; toolName?: string; state?: string; text?: string; output?: unknown }
+type Message = { role?: string; parts: readonly Part[] }
 
 /**
  * 대화 기록에서 비교 상태를 읽는다.
- * 모델 문장은 깨지거나 틀릴 수 있어 도구 결과와 대화 종료 여부만 본다.
+ * AI는 판단을 한 줄 JSON 글로 쓰고, 화면은 쓰이는 대로 끝난 줄을 보여 준다. 응답이 끝나면(answered) 서버 검사를 부른다.
+ * 근거를 고쳐 달라고 다시 보낸 횟수(retries)는 사용자 메시지 수로 센다.
  */
-export function readComparison(
-  messages: readonly { parts: readonly Part[] }[],
-  settlements: readonly Settlement[],
-  status: string,
-): ComparisonView {
+export function readComparison(messages: readonly Message[], settlements: readonly Settlement[], status: string): ComparisonView {
   const parts = messages.flatMap((message) => message.parts)
 
+  // 도구로 저장하던 예전 기록도 그대로 보여 준다.
   const saved = parts.findLast(
     (part) => part.type === 'dynamic-tool' && part.toolName === 'save_comparison' && part.state === 'output-available',
   )
@@ -29,18 +29,14 @@ export function readComparison(
 
   if (settlements.some(({ error }) => isQuotaError(error))) return { phase: 'failed', reason: 'quota' }
   if (status === 'error' || settlements.some(({ outcome }) => outcome !== 'completed')) return { phase: 'failed', reason: 'connection' }
-  if (settlements.length > 0) return { phase: 'failed', reason: 'evidence' }
 
-  // 진행 표시는 실제로 받은 신호만 쓴다: 저장 도구 호출에 담긴 요건 수, 확인 중인 호출, 근거 불일치로 실패한 호출.
-  const calls = parts.filter((part) => part.type === 'dynamic-tool' && part.toolName === 'save_comparison')
-  const last = calls.at(-1)
-  const rows = (last?.input as { rows?: unknown } | undefined)?.rows
-  return {
-    phase: 'working',
-    requirementCount: Array.isArray(rows) ? rows.length : null,
-    checking: last?.state === 'input-available',
-    retries: calls.filter((part) => part.state === 'output-error').length,
-  }
+  const sent = messages.filter(({ role }) => role === 'user').length
+  const lastUser = messages.findLastIndex(({ role }) => role === 'user')
+  const reply = messages.slice(lastUser + 1).find(({ role }) => role === 'assistant')
+  const answered = sent > 0 && settlements.length >= sent && status !== 'streaming' && status !== 'submitted'
+  const text = (reply?.parts ?? []).filter((part) => part.type === 'text').map((part) => part.text ?? '').join('')
+
+  return { phase: 'working', rows: parseRows(text, { streaming: !answered }), retries: Math.max(0, sent - 1), answered }
 }
 
 export function applyEdits(rows: readonly Row[], edits: Readonly<Record<number, Verdict>>): EditedRow[] {

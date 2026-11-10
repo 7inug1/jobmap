@@ -11,26 +11,34 @@ const row: Row = {
 }
 
 const saved = { type: 'dynamic-tool', toolName: 'save_comparison', state: 'output-available', output: { rows: [row] } }
-const rejected = { type: 'dynamic-tool', toolName: 'save_comparison', state: 'output-error' }
-const text = { type: 'text', text: '저장되었습니다.' }
-const progress = (step: string) => ({ type: 'data-progress', data: { step } })
 const completed = [{ outcome: 'completed' }]
 
+const user = (body = '비교해 주세요') => ({ role: 'user', parts: [{ type: 'text', text: body }] })
+const answer = (text: string, state = 'streaming') => ({ role: 'assistant', parts: [{ type: 'text', text, state }] })
+const line = JSON.stringify(row)
+
 describe('readComparison', () => {
-  it('도구가 성공하면 답변이 끝나기 전이라도 표를 보여 준다', () => {
-    assert.deepEqual(readComparison([{ parts: [saved] }], [], 'streaming'), { phase: 'done', rows: [row] })
+  it('예전 기록처럼 저장 도구가 성공했으면 표를 보여 준다', () => {
+    assert.deepEqual(readComparison([user(), { role: 'assistant', parts: [saved] }], completed, 'idle'), { phase: 'done', rows: [row] })
   })
 
-  it('실패 뒤 재시도가 성공하면 성공으로 본다', () => {
-    assert.deepEqual(readComparison([{ parts: [rejected, saved] }], completed, 'idle'), { phase: 'done', rows: [row] })
+  it('아직 응답이 없으면 쓰는 중이다', () => {
+    assert.deepEqual(readComparison([user()], [], 'submitted'), { phase: 'working', rows: [], retries: 0, answered: false })
   })
 
-  it('모델이 저장됐다고 말해도 도구가 실패했으면 실패다', () => {
-    assert.deepEqual(readComparison([{ parts: [rejected, text] }], completed, 'idle'), { phase: 'failed', reason: 'evidence' })
+  it('쓰는 중에는 끝난 줄만 판단으로 보여 준다', () => {
+    const view = readComparison([user(), answer(`${line}\n{"requirement"`)], [], 'streaming')
+    assert.deepEqual(view, { phase: 'working', rows: [row], retries: 0, answered: false })
   })
 
-  it('도구를 부르지 않고 끝나면 실패다', () => {
-    assert.deepEqual(readComparison([{ parts: [text] }], completed, 'idle'), { phase: 'failed', reason: 'evidence' })
+  it('응답이 끝나면 검사할 차례다', () => {
+    const view = readComparison([user(), answer(line, 'done')], completed, 'idle')
+    assert.deepEqual(view, { phase: 'working', rows: [row], retries: 0, answered: true })
+  })
+
+  it('고쳐 달라고 다시 보낸 뒤에는 마지막 응답만 읽고 횟수를 센다', () => {
+    const messages = [user(), answer(line, 'done'), user('고쳐 주세요'), answer('')]
+    assert.deepEqual(readComparison(messages, completed, 'streaming'), { phase: 'working', rows: [], retries: 1, answered: false })
   })
 
   it('연결 오류면 실패다', () => {
@@ -38,36 +46,12 @@ describe('readComparison', () => {
   })
 
   it('요청이 실패로 끝나면 연결 오류로 본다', () => {
-    assert.deepEqual(readComparison([], [{ outcome: 'failed', error: 'boom' }], 'idle'), { phase: 'failed', reason: 'connection' })
+    assert.deepEqual(readComparison([user()], [{ outcome: 'failed', error: 'boom' }], 'idle'), { phase: 'failed', reason: 'connection' })
   })
 
-  it('한도 오류는 도구 실패보다 먼저 알려 준다', () => {
+  it('한도 오류는 따로 알려 준다', () => {
     const quota = [{ outcome: 'failed', error: { message: '4006: you have used up your daily free allocation' } }]
-    assert.deepEqual(readComparison([{ parts: [rejected] }], quota, 'idle'), { phase: 'failed', reason: 'quota' })
-  })
-
-  it('아직 아무 응답이 없으면 AI가 비교하는 중이다', () => {
-    assert.deepEqual(readComparison([], [], 'idle'), { phase: 'working', requirementCount: null, checking: false, retries: 0 })
-  })
-
-  it('도구를 부르면 정리한 요건 수와 근거 확인 중임을 알려 준다', () => {
-    const called = { type: 'dynamic-tool', toolName: 'save_comparison', state: 'input-available', input: { rows: [row, row, row] } }
-    assert.deepEqual(readComparison([{ parts: [called, progress('근거 문장 확인하기')] }], [], 'streaming'), {
-      phase: 'working',
-      requirementCount: 3,
-      checking: true,
-      retries: 0,
-    })
-  })
-
-  it('근거가 맞지 않아 다시 고친 횟수를 센다', () => {
-    const failed = { ...rejected, input: { rows: [row, row] } }
-    assert.deepEqual(readComparison([{ parts: [failed, failed] }], [], 'streaming'), {
-      phase: 'working',
-      requirementCount: 2,
-      checking: false,
-      retries: 2,
-    })
+    assert.deepEqual(readComparison([user()], quota, 'idle'), { phase: 'failed', reason: 'quota' })
   })
 })
 

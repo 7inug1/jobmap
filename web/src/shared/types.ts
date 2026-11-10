@@ -35,5 +35,7 @@ export type Run = Inputs & {
   /** 예전 저장 형식. 일 단위로 끝냈는지만 기록했다. */
   doneTasks?: string[]
   completions?: Completion[]
+  /** 서버 검사를 마친 판단. 있으면 대화 기록 대신 이것을 보여 준다. */
+  rows?: Row[]
   retries?: number
 }

@@ -50,6 +50,15 @@ describe('parseSavedRun', () => {
     assert.deepEqual(parse(withRecords), withRecords)
   })
 
+  it('검사를 마친 판단을 복원한다', () => {
+    const rows = [{ requirement: 'A', verdict: 'met', postingQuote: '공고', resumeQuote: null }]
+    assert.deepEqual(parse({ ...run, rows }), { ...run, rows })
+  })
+
+  it('판단 형식이 틀리면 null이다', () => {
+    assert.equal(parse({ ...run, rows: [{ requirement: 'A', verdict: 'maybe', postingQuote: '공고', resumeQuote: null }] }), null)
+  })
+
   it('해낸 시간 기록 형식이 틀리면 null이다', () => {
     assert.equal(parse({ ...run, completions: [{ key: '1:0' }] }), null)
   })

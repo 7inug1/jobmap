@@ -7,6 +7,7 @@ import { Jobmap } from './agents/jobmap.ts';
 import * as v from 'valibot';
 import { directionsRequest, generateDirections } from './directions/generate-directions.ts';
 import { createDailyLimit } from './limits/daily-limit.ts';
+import { checkRequest, validateRows } from './comparison/validate-rows.ts';
 import { withOutputLimit } from './model/output-limit.ts';
 import { readPosting } from './posting/read-posting.ts';
 
@@ -27,6 +28,13 @@ app.route('/agents/jobmap', createAgentRouter(Jobmap));
 app.get('/api/posting', async (c) => {
 	const result = await readPosting(c.req.query('url') ?? '');
 	return c.json(result, result.ok ? 200 : 422);
+});
+
+// AI를 부르지 않는 근거 검사. 화면이 스트리밍으로 받은 판단을 응답이 끝난 뒤 보낸다.
+app.post('/api/comparison/check', async (c) => {
+	const parsed = v.safeParse(checkRequest, await c.req.json().catch(() => null));
+	if (!parsed.success) return c.json({ ok: false, issues: ['요청 형식이 맞지 않습니다.'] }, 400);
+	return c.json(validateRows(parsed.output));
 });
 
 app.post('/api/directions', async (c) => {
