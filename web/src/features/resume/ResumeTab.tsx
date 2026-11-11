@@ -7,10 +7,11 @@ import { addedAtTarget, placeSentences, readyToFill, resumePages } from './sente
 import { ZoomStage } from './ZoomStage.tsx'
 
 /** 이력서 문장 화면. 할 일을 체크하고, 다 끝나면 실제 결과를 넣어 문장을 완성한다. */
-export function ResumeTab({ run, onChange, planHref }: { run: Run; onChange: (run: Run) => void; planHref: string }) {
+export function ResumeTab({ run, onChange, planHref, onRegenerate }: { run: Run; onChange: (run: Run) => void; planHref: string; onRegenerate: () => void }) {
   const state = run.sentences!
   const items = state.items
   const [replay, setReplay] = useState(false)
+  const [confirmingRegenerate, setConfirmingRegenerate] = useState(false)
   const doneCount = items.filter((item) => item.done).length
 
   function update(key: string, patch: Partial<SentenceItem>) {
@@ -96,6 +97,9 @@ export function ResumeTab({ run, onChange, planHref }: { run: Run; onChange: (ru
         <Link className="btn-line" to={planHref}>
           이번 주 할 일을 볼게요
         </Link>
+        <button className="link-button" type="button" onClick={() => (confirmingRegenerate ? onRegenerate() : setConfirmingRegenerate(true))}>
+          {confirmingRegenerate ? '체크한 할 일과 넣은 결과가 모두 사라져요. 정말 새로 만들게요' : '문장을 새 프로젝트로 처음부터 다시 만들게요'}
+        </button>
       </div>
     </>
   )

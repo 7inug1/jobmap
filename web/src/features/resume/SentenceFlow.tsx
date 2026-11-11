@@ -12,12 +12,14 @@ export function SentenceFlow({
   run,
   onChange,
   onRemove,
+  onRegenerate,
   onBack,
   onStart,
 }: {
   run: Run
   onChange: (run: Run) => void
   onRemove: (key: string) => void
+  onRegenerate: () => void
   onBack: () => void
   onStart: () => void
 }) {
@@ -100,6 +102,9 @@ export function SentenceFlow({
         <div className="head">
           <h1>문장을 하나씩 확인할게요</h1>
           <span className="lead-line">왼쪽 이력서에서 문장이 들어갈 자리를 보면서, 맞으면 넘어가고 할 일이 다르면 지금 고쳐 주세요.</span>
+          <button className="link-button start-align" type="button" onClick={onRegenerate}>
+            문장이 마음에 들지 않아요. 새 프로젝트 문장을 다시 만들게요
+          </button>
         </div>
         <div className="resume-split">
           <aside className="resume-side">

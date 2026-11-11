@@ -109,11 +109,12 @@ export function RunFlow({ run, step }: { run: Run; step: Step }) {
   const [confirmFailure, setConfirmFailure] = useState<ReturnType<typeof sentencesFailure> | null>(null)
   const [confirmFailures, setConfirmFailures] = useState(0)
 
-  async function confirmDirections() {
+  async function confirmDirections(force = false) {
     if (!run.directions) return
     const saved = run.directions
     const picks = projectPicks(activeDirections(saved.directions, skipped), saved.picks)
-    const existing = run.sentences?.items ?? []
+    // force는 이미 만든 문장을 모두 버리고 새로 만든다(문장이 마음에 들지 않을 때).
+    const existing = force ? [] : (run.sentences?.items ?? [])
     if (picks.length === 0) {
       if (run.sentences) onChange({ ...run, sentences: undefined })
       navigate(runPath(run.id, 'plan'))
@@ -171,12 +172,13 @@ export function RunFlow({ run, step }: { run: Run; step: Step }) {
 
   if (step === 'resume' && run.directions && run.sentences) {
     return run.sentences.confirmed ? (
-      <ResumeTab run={run} onChange={onChange} planHref={runPath(run.id, 'plan')} />
+      <ResumeTab run={run} onChange={onChange} planHref={runPath(run.id, 'plan')} onRegenerate={() => confirmDirections(true)} />
     ) : (
       <SentenceFlow
         run={run}
         onChange={onChange}
         onRemove={removeSentence}
+        onRegenerate={() => confirmDirections(true)}
         onBack={() => navigate(runPath(run.id, 'directions'))}
         onStart={() => {
           onChange({ ...run, sentences: { ...run.sentences!, confirmed: true } })
@@ -216,7 +218,7 @@ export function RunFlow({ run, step }: { run: Run; step: Step }) {
         moreFailure={moreFailure}
         picks={saved.picks}
         onPicks={(picks) => onChange({ ...run, directions: { ...saved, picks } })}
-        onConfirm={confirmDirections}
+        onConfirm={() => confirmDirections()}
         confirmFailure={confirmFailure}
         onBack={() => navigate(runPath(run.id))}
       />

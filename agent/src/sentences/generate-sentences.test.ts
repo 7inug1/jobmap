@@ -1,7 +1,7 @@
 import { describe, expect, it, vi } from 'vitest';
-import { checkSentences, generateSentences, referenceLines } from './generate-sentences.ts';
+import { checkSentences, existingNames, generateSentences, projectSectionEnd, referenceLines } from './generate-sentences.ts';
 
-const resume = '프로젝트\nDigestube 유튜브 영상을 책처럼 읽는 서비스\n- 검색 순서를 리랭커로 개선\n- PostgreSQL, pgvector로 문단과 벡터를 관리\nVIZUDEN 스타일 진단 AI 서비스\n- 설문을 보고서로 바꾸는 프롬프트 설계';
+const resume = '경력\n한경에이셀 프론트엔드 2022.09 - 2026.02\n- 디자인 시스템 설계\n주요 프로젝트\nDigestube 유튜브 영상을 책처럼 읽는 서비스\n- 검색 순서를 리랭커로 개선\n- PostgreSQL, pgvector로 문단과 벡터를 관리\nVIZUDEN 스타일 진단 AI 서비스\n- 설문을 보고서로 바꾸는 프롬프트 설계\n기술\nReact, TypeScript';
 
 const picks = [
 	{ requirement: '데이터 기반 실험 경험', label: 'A/B 테스트 하기', description: '첫 화면 문구를 실험해요.', hours: 4 },
@@ -31,8 +31,18 @@ describe('checkSentences', () => {
 	it('프로젝트마다 문장, 할 일, 들어갈 자리를 방법 번호순으로 돌려준다', () => {
 		const result = checkSentences({ sentences: [item(2, { after: null }), item(1)] }, picks, resume);
 		expect(result.ok && result.sentences.map((entry) => entry.picks)).toEqual([[1], [2]]);
-		expect(result.ok && result.sentences[0]!.after).toBe('- 검색 순서를 리랭커로 개선');
 		expect(result.ok && result.sentences[0]!.title).toBe('프로젝트 1');
+	});
+
+	it('들어갈 자리는 모델이 정한 곳이 아니라 이력서의 프로젝트 영역 맨 끝 줄이다', () => {
+		// 모델이 이전 회사 항목 아래를 가리켜도 새 별개 프로젝트이므로 무시한다.
+		const result = checkSentences({ sentences: [item(1, { after: '- 디자인 시스템 설계' }), item(2, { after: '지어낸 줄' })] }, picks, resume);
+		expect(result.ok && result.sentences.map((entry) => entry.after)).toEqual(['- 설문을 보고서로 바꾸는 프롬프트 설계', '- 설문을 보고서로 바꾸는 프롬프트 설계']);
+	});
+
+	it('프로젝트 영역이 없으면 들어갈 자리를 정하지 않는다', () => {
+		const result = checkSentences({ sentences: [item(1), item(2)] }, picks, '경력\n한경에이셀 프론트엔드\n- 디자인 시스템 설계');
+		expect(result.ok && result.sentences.map((entry) => entry.after)).toEqual([null, null]);
 	});
 
 	it('여러 방법을 한 프로젝트로 묶은 문장을 받는다', () => {
@@ -85,15 +95,57 @@ describe('checkSentences', () => {
 		const result = checkSentences({ sentences: [item(1, { steps: many }), item(2)] }, picks, resume);
 		expect(result.ok && result.sentences[0]!.steps).toHaveLength(5);
 	});
+});
 
-	it('들어갈 자리가 이력서에 그대로 있지 않으면 null로 바꾼다', () => {
-		const result = checkSentences({ sentences: [item(1, { after: '지어낸 문장입니다' }), item(2)] }, picks, resume);
-		expect(result.ok && result.sentences[0]!.after).toBeNull();
+describe('existingNames', () => {
+	it('목록 바로 위의 줄에서 이력서에 있는 회사와 프로젝트 이름을 뽑는다', () => {
+		expect(existingNames(resume)).toEqual(['한경에이셀', 'Digestube', 'VIZUDEN']);
 	});
 
-	it('구두점만 다르게 적은 들어갈 자리는 이력서 문장으로 되돌린다', () => {
-		const result = checkSentences({ sentences: [item(1, { after: 'PostgreSQL pgvector로 문단과 벡터를 관리' }), item(2)] }, picks, resume);
-		expect(result.ok && result.sentences[0]!.after).toBe('PostgreSQL, pgvector로 문단과 벡터를 관리');
+	it('이름이 될 수 없는 짧은 말과 영역 제목은 뽑지 않는다', () => {
+		expect(existingNames('경력\n- 일\n주요 프로젝트\n- 일\nAI 서비스\n- 일')).toEqual([]);
+	});
+
+	it('목록이 없는 이력서에서는 뽑지 않는다', () => {
+		expect(existingNames('경력\n한경에이셀 프론트엔드\n기술\nReact')).toEqual([]);
+	});
+});
+
+describe('기존 회사와 프로젝트 이름', () => {
+	it('문장, 이름, 할 일에 이력서의 회사나 프로젝트 이름이 나오면 새 프로젝트로 다시 쓰게 한다', () => {
+		const text = (extra: Record<string, unknown>) => checkSentences({ sentences: [item(1, extra), item(2)] }, picks, resume);
+		for (const extra of [{ sentence: 'Digestube에 A/B 테스트를 붙여 {결과}' }, { title: '한경에이셀 개선' }, { steps: ['VIZUDEN 보고서 고치기'] }]) {
+			const result = text(extra);
+			expect(result.ok).toBe(false);
+			expect(result.ok ? '' : result.issues.join()).toMatch(/1번.*새.*별개/);
+		}
+	});
+
+	it('이름이 없는 새 프로젝트 문장은 통과한다', () => {
+		expect(checkSentences({ sentences: [item(1), item(2)] }, picks, resume).ok).toBe(true);
+	});
+});
+
+describe('projectSectionEnd', () => {
+	it('프로젝트 영역의 맨 끝 줄을 찾는다', () => {
+		expect(projectSectionEnd(resume)).toBe('- 설문을 보고서로 바꾸는 프롬프트 설계');
+	});
+
+	it('여러 쪽(\\f)에 걸쳐도 다음 영역 제목 앞까지를 영역으로 본다', () => {
+		expect(projectSectionEnd('경력\n- 회사 일\n\f\n프로젝트\n- 개인 일 1\n- 개인 일 2\n\f\n학력\n대학')).toBe('- 개인 일 2');
+	});
+
+	it('영문 제목과 개인 프로젝트 제목도 찾는다', () => {
+		expect(projectSectionEnd('Experience\n- job\nProjects\n- side one\nSkills\nReact')).toBe('- side one');
+		expect(projectSectionEnd('개인 프로젝트\n- 하나')).toBe('- 하나');
+	});
+
+	it('프로젝트 영역이 맨 끝이면 이력서의 마지막 줄이다', () => {
+		expect(projectSectionEnd('경력\n- 일\n프로젝트\n- 첫째\n- 마지막')).toBe('- 마지막');
+	});
+
+	it('프로젝트 영역이 없으면 null이다', () => {
+		expect(projectSectionEnd('경력\n- 일\n기술\nReact')).toBeNull();
 	});
 });
 
