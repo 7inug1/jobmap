@@ -25,8 +25,8 @@ const dailyLimit = createDailyLimit({
 	},
 	personLimits: {
 		compare: Number(env.PERSON_COMPARE_LIMIT ?? 3),
-		directions: Number(env.PERSON_DIRECTIONS_LIMIT ?? 6),
-		sentences: Number(env.PERSON_SENTENCES_LIMIT ?? 6),
+		directions: Number(env.PERSON_DIRECTIONS_LIMIT ?? 30),
+		sentences: Number(env.PERSON_SENTENCES_LIMIT ?? 30),
 	},
 });
 
