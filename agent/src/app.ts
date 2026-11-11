@@ -23,6 +23,11 @@ const dailyLimit = createDailyLimit({
 		directions: Number(env.DAILY_DIRECTIONS_LIMIT ?? 80),
 		sentences: Number(env.DAILY_SENTENCES_LIMIT ?? 80),
 	},
+	personLimits: {
+		compare: Number(env.PERSON_COMPARE_LIMIT ?? 3),
+		directions: Number(env.PERSON_DIRECTIONS_LIMIT ?? 6),
+		sentences: Number(env.PERSON_SENTENCES_LIMIT ?? 6),
+	},
 });
 
 const app = new Hono();
@@ -45,7 +50,8 @@ app.post('/api/comparison/check', async (c) => {
 app.post('/api/directions', async (c) => {
 	const parsed = v.safeParse(directionsRequest, await c.req.json().catch(() => null));
 	if (!parsed.success) return c.json({ ok: false }, 400);
-	if (!(await dailyLimit.takeDirections())) return c.json({ ok: false, reason: 'daily_limit' }, 429);
+	const taken = await dailyLimit.takeDirections(c.req.header('cf-connecting-ip'));
+	if (!taken.ok) return c.json({ ok: false, reason: taken.reason }, 429);
 	const result = await generateDirections(env.AI as never, parsed.output);
 	return c.json(result, result.ok ? 200 : result.reason === 'quota' ? 429 : 502);
 });
@@ -54,7 +60,8 @@ app.post('/api/directions', async (c) => {
 app.post('/api/resume-sentences', async (c) => {
 	const parsed = v.safeParse(sentencesRequest, await c.req.json().catch(() => null));
 	if (!parsed.success) return c.json({ ok: false }, 400);
-	if (!(await dailyLimit.takeSentences())) return c.json({ ok: false, reason: 'daily_limit' }, 429);
+	const taken = await dailyLimit.takeSentences(c.req.header('cf-connecting-ip'));
+	if (!taken.ok) return c.json({ ok: false, reason: taken.reason }, 429);
 	const result = await generateSentences(env.AI as never, parsed.output, env.SENTENCES_MODEL || undefined);
 	return c.json(result, result.ok ? 200 : result.reason === 'quota' ? 429 : 502);
 });

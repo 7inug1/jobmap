@@ -57,6 +57,7 @@ describe('isDailyLimit', () => {
   it('서버의 하루 총량 초과 응답을 알아본다', () => {
     assert.equal(isDailyLimit(Object.assign(new Error('x'), { status: 429 })), true)
     assert.equal(isDailyLimit(new Error('daily_limit')), true)
+    assert.equal(isDailyLimit(new Error('person_limit')), true)
     assert.equal(isDailyLimit(new Error('boom')), false)
   })
 

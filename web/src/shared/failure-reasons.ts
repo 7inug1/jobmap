@@ -18,7 +18,8 @@ export function sentencesFailure(error: unknown, failures: number): { message: s
   return { message: '이력서에 넣을 문장을 쓰지 못했어요. 다시 눌러 주세요.', canRetry: true }
 }
 
-export const DAILY_LIMIT_DETAIL = '오늘 서비스에서 처리할 수 있는 횟수를 다 썼어요. 내일 다시 시도해 주세요.'
+// 서비스 전체 총량과 사람별 한도가 같은 안내를 쓴다. 두 경우 모두 오늘은 더 할 수 없고 내일 다시 쓸 수 있다.
+export const DAILY_LIMIT_DETAIL = '오늘 쓸 수 있는 횟수를 모두 썼어요. 내일 다시 이용해 주세요.'
 
 export const RETRIES_USED_UP = '여러 번 실패했어요. 입력을 고치거나 잠시 뒤 새로 시작해 주세요.'
 
@@ -28,9 +29,9 @@ export function isQuotaError(error: unknown): boolean {
   return /\b4006\b|daily free allocation/i.test(text)
 }
 
-/** 서버가 서비스 전체 하루 총량을 넘겨 거절했는지 본다. */
+/** 서버가 서비스 전체 하루 총량이나 사람별 하루 한도를 넘겨 거절했는지 본다. */
 export function isDailyLimit(error: unknown): boolean {
-  return error instanceof Error && ((error as { status?: unknown }).status === 429 || error.message === 'daily_limit')
+  return error instanceof Error && ((error as { status?: unknown }).status === 429 || error.message === 'daily_limit' || error.message === 'person_limit')
 }
 
 /** 다시 시도해도 뉴런만 쓰는 경우를 막는다. */
